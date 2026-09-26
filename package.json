@@ -1,0 +1,53 @@
+{
+  "name": "musicolet-pc",
+  "version": "1.0.0",
+  "description": "An offline desktop music player for Windows/macOS/Linux inspired by Musicolet for Android: multiple queues, folders, synced lyrics, tag editor, equalizer and sleep timer.",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux AppImage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mistershenterry/musicolet-pc.git"
+  },
+  "keywords": [],
+  "author": "mistershenterry",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mistershenterry/musicolet-pc/issues"
+  },
+  "homepage": "https://github.com/mistershenterry/musicolet-pc#readme",
+  "dependencies": {
+    "music-metadata": "^11.16.1",
+    "node-id3": "^0.2.9"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  },
+  "productName": "Musicolet PC",
+  "build": {
+    "appId": "com.mistershenterry.musicoletpc",
+    "productName": "Musicolet PC",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

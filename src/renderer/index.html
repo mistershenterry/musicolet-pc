@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: mco:; media-src 'self' mco:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>Musicolet PC</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <nav id="sidebar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <span>Musicolet <b>PC</b></span>
+        </div>
+        <div id="nav"></div>
+        <div class="sidebar-foot">
+          <div id="scan-status" hidden>
+            <div class="scan-label">Scanning…</div>
+            <div class="scan-bar"><div></div></div>
+          </div>
+          <button class="nav-item" id="btn-settings" data-icon="settings">Settings</button>
+        </div>
+      </nav>
+
+      <main id="content"></main>
+
+      <aside id="nowplaying">
+        <div class="np-art-wrap"><img id="np-art" alt="" /><div id="np-art-empty" class="art-placeholder"></div></div>
+        <div class="np-meta">
+          <div class="np-text">
+            <div id="np-title" class="ellipsis">Nothing playing</div>
+            <div id="np-sub" class="ellipsis muted"></div>
+          </div>
+          <button id="np-fav" class="icon-btn" title="Favorite (F)"></button>
+        </div>
+        <div class="segmented" id="np-tabs">
+          <button data-panel="queue" class="active">Up next</button>
+          <button data-panel="lyrics">Lyrics</button>
+        </div>
+        <div id="np-queue-panel" class="np-panel">
+          <div class="np-queue-head">
+            <select id="np-queue-select" title="Switch queue"></select>
+            <span id="np-queue-count" class="muted small"></span>
+          </div>
+          <div id="np-queue-list" class="np-list"></div>
+        </div>
+        <div id="np-lyrics-panel" class="np-panel" hidden>
+          <div id="lyrics" class="lyrics"></div>
+        </div>
+      </aside>
+
+      <footer id="player">
+        <div class="controls">
+          <button id="btn-shuffle" class="icon-btn" title="Shuffle current queue"></button>
+          <button id="btn-prev" class="icon-btn" title="Previous (Ctrl+Left)"></button>
+          <button id="btn-play" class="play-btn" title="Play / pause (Space)"></button>
+          <button id="btn-next" class="icon-btn" title="Next (Ctrl+Right)"></button>
+          <button id="btn-repeat" class="icon-btn" title="Repeat"></button>
+        </div>
+        <div class="seek">
+          <span id="time-cur" class="time">0:00</span>
+          <input id="seek" type="range" min="0" max="1000" value="0" step="1" />
+          <span id="time-dur" class="time">0:00</span>
+        </div>
+        <div class="extras">
+          <button id="btn-speed" class="pill-btn" title="Playback speed">1.0×</button>
+          <button id="btn-eq" class="icon-btn" title="Equalizer"></button>
+          <button id="btn-sleep" class="icon-btn" title="Sleep timer"></button>
+          <button id="btn-mute" class="icon-btn" title="Mute (M)"></button>
+          <input id="volume" type="range" min="0" max="100" value="80" />
+        </div>
+      </footer>
+    </div>
+
+    <div id="overlay-root"></div>
+    <div id="toast-root"></div>
+
+    <script src="js/icons.js"></script>
+    <script src="js/util.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/lyrics.js"></script>
+    <script src="js/tracklist.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/dialogs.js"></script>
+    <script src="js/views.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
