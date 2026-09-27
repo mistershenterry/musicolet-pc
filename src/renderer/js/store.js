@@ -30,7 +30,7 @@ function defaultState() {
       folderMode: 'tree', // tree | flat
       lyricsSize: 18,
       eq: { enabled: false, preset: 'Flat', gains: EQ_BANDS.map(() => 0), preamp: 0 },
-      discord: { enabled: false, clientId: '', showPaused: true, covers: true },
+      discord: { enabled: false, clientId: '', showPaused: true, covers: true, uploadCovers: true },
       sorts: {},
     },
     ui: { tab: 'songs', panel: 'queue' },

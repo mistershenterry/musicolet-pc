@@ -474,6 +474,12 @@ const Dialogs = {
       Store.save();
       Presence.update();
     });
+    const upload = h('input', { type: 'checkbox', checked: d.uploadCovers });
+    upload.addEventListener('change', () => {
+      d.uploadCovers = upload.checked;
+      Store.save();
+      Presence.update();
+    });
     api.discordStatus().then(showStatus);
     // Refresh the status line while the dialog is open (it changes when Discord starts/quits).
     const timer = setInterval(() => {
@@ -496,8 +502,15 @@ const Dialogs = {
       h('label', { class: 'settings-row' }, h('div', { text: 'When playback is paused' }), paused),
       h('label', { class: 'settings-row' },
         h('div', {},
-          h('div', { text: 'Show album covers' }),
-          h('div', { class: 'muted small', text: 'Discord can\'t show pictures stored on your PC, so covers are found online by artist and album name (iTunes, then Deezer). Only used while Discord status is on.' }),
+          h('div', { text: 'Show the song\'s own cover' }),
+          h('div', { class: 'muted small', text: 'Discord can\'t show pictures stored on your PC, so the cover of the playing song is uploaded to Litterbox (litterbox.catbox.moe), which deletes it after 3 days. Only the picture is uploaded, never the song.' }),
+        ),
+        h('label', { class: 'switch' }, upload, h('span', { class: 'slider' })),
+      ),
+      h('label', { class: 'settings-row' },
+        h('div', {},
+          h('div', { text: 'Search for covers online' }),
+          h('div', { class: 'muted small', text: 'For songs without their own cover: find the album cover on iTunes, then Deezer, by artist and album name.' }),
         ),
         h('label', { class: 'switch' }, covers, h('span', { class: 'slider' })),
       ),

@@ -28,6 +28,9 @@ const Presence = {
     if (!t || !this.hasPlayed) return api.discordUpdate({ idle: true });
     const a = Player.audio;
     api.discordUpdate({
+      id: t.id,
+      coverFile: t.cover,
+      uploadCovers: this.cfg.uploadCovers,
       title: t.title,
       artist: t.artist,
       album: t.album,

@@ -152,11 +152,16 @@ Turn it on in **Settings → Discord → Show what I'm listening to on Discord**
 is replaced by "Paused" with a ⏸ badge on the cover (or you can hide the status while paused). Right after you open the app, until you play something, it shows *Playing Musicolet PC · Idling...*.
 The status is removed when you close the app.
 
-**Album covers:** Discord can only show pictures that are online, not the covers stored on your PC. So Musicolet PC looks the
-cover up on iTunes (then Deezer) using the song's artist and album name, and only uses it when the names match. Songs that
-aren't on those services (for example YouTube downloads, fan remixes or untagged files) show the Musicolet PC icon instead. Only the artist,
-album and title are sent, only while Discord status is on, and results are cached. Turn it off with
-**Settings → Discord → Show album covers**.
+**Album covers:** Discord can only show pictures that are online, not the covers stored on your PC. So while Discord status is on,
+Musicolet PC picks the cover like this:
+
+1. **The song's own cover** (the one you see in the app) is uploaded to [Litterbox](https://litterbox.catbox.moe), a free image
+   host that deletes files after 3 days. Only the picture is uploaded (shrunk to 512 px), never the song. Each cover is
+   uploaded once and reused until it expires. Anyone with the link can open the picture while it exists.
+   Turn it off with **Settings → Discord → Show the song's own cover**.
+2. **Online search:** songs without their own cover are looked up on iTunes (then Deezer) by artist and album name, and a result is
+   only used when the names match. Turn it off with **Settings → Discord → Search for covers online**.
+3. Otherwise, the **Musicolet PC icon** is shown.
 
 It needs the **Discord desktop app** running on the same PC (the browser version of Discord can't receive it).
 If Discord starts after Musicolet PC, it connects automatically within a few seconds.
@@ -176,9 +181,9 @@ and paste its Application ID into **Settings → Discord → Custom Application 
 Your songs are never moved or changed unless you edit tags or choose *Delete from disk* (which moves files to the Recycle Bin).
 Queues, playlists, favorites, play counts and settings are stored in:
 
-- Windows: `%APPDATA%\musicolet-pc\`
-- macOS: `~/Library/Application Support/musicolet-pc/`
-- Linux: `~/.config/musicolet-pc/`
+- Windows: `%APPDATA%\Musicolet PC\`
+- macOS: `~/Library/Application Support/Musicolet PC/`
+- Linux: `~/.config/Musicolet PC/`
 
 To keep this data somewhere else (for example on a USB stick next to the portable `.exe`), set the environment variable `MUSICOLET_PC_DATA` to a folder path before starting the app.
 

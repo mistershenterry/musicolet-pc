@@ -1,5 +1,6 @@
 // Discord Rich Presence: shows "Listening to <song>" on the user's Discord profile.
-// Talks to the local Discord desktop app over IPC. Album covers come from CoverLookup (iTunes/Deezer).
+// Talks to the local Discord desktop app over IPC. Covers come from CoverUploader (the song's own cover,
+// via Litterbox) or CoverLookup (iTunes/Deezer search).
 const { Client } = require('@xhayper/discord-rpc');
 
 const PLAYING = 0;
@@ -142,23 +143,33 @@ class DiscordPresence {
     this.refresh();
   }
 
+  // Cover priority: the song's own cover (uploaded to Litterbox) > online search by artist/album > app icon.
+  // The status is shown right away; the picture is added once an upload/lookup finishes.
   refresh() {
     const np = this.np;
+    const stillCurrent = () => this.np && np && this.np.id === np.id;
     let cover = null;
-    if (np && !np.idle && np.lookupCovers && this.covers) {
+    let waiting = false;
+    if (np && !np.idle && np.uploadCovers && np.coverFile && this.uploader) {
+      const cached = this.uploader.peek(np.coverFile);
+      if (cached === undefined) {
+        waiting = true;
+        this.uploader.get(np.coverFile).then(() => stillCurrent() && this.refresh());
+      } else {
+        cover = cached; // null = upload failed recently: fall through to the online search
+      }
+    }
+    if (!cover && !waiting && np && !np.idle && np.lookupCovers && this.covers) {
       const song = { artist: np.artist, album: np.album, title: np.title };
       const cached = this.covers.peek(song);
       if (cached === undefined) {
-        // Show the status right away and add the cover once the lookup finishes.
-        this.covers.find(song).then((url) => {
-          if (url && this.np === np) this.refresh();
-        });
+        this.covers.find(song).then((url) => url && stillCurrent() && this.refresh());
       } else {
         cover = cached;
       }
     }
     const fallback = this.cachedAppIcon();
-    if (fallback === undefined && this.enabled) this.appIcon().then((url) => url && this.np === np && this.refresh());
+    if (fallback === undefined && this.enabled) this.appIcon().then((url) => url && this.np && this.refresh());
     this.activity = this.build(np, cover, fallback || null);
     this.flush();
   }
