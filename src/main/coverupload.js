@@ -8,7 +8,9 @@ const fs = require('fs');
 const API = 'https://litterbox.catbox.moe/resources/internals/api.php';
 const EXPIRY = '72h';
 const REUSE_MS = 70 * 3600 * 1000; // re-upload a little before Litterbox deletes the file
-const FAIL_RETRY_MS = 10 * 60 * 1000;
+const FAIL_RETRY_MS = 60 * 1000; // after all attempts failed, try again a minute later
+const ATTEMPT_DELAYS_MS = [0, 3000, 10000]; // Litterbox sometimes refuses or answers very slowly; retry
+const UPLOAD_TIMEOUT_MS = 45000; // uploads normally take 1-15 s but can take longer
 const MAX_SIZE = 512; // Discord shows covers small; this keeps uploads quick
 
 class CoverUploader {
@@ -48,13 +50,16 @@ class CoverUploader {
     if (cached !== undefined) return cached;
     const { file, key } = this.key(name);
     if (this.pending.has(key)) return this.pending.get(key);
-    const job = this.upload(file)
+    const job = this.uploadWithRetry(file)
       .then((url) => {
         this.cache[key] = { url, at: Date.now() };
         return url;
       })
-      .catch(() => {
-        this.cache[key] = { url: null, at: Date.now() };
+      .catch((err) => {
+        const error = [err?.message, err?.cause?.message].filter(Boolean).join(': ');
+        if (process.env.MUSICOLET_PC_DEBUG) console.log('[cover upload failed]', error);
+        // The reason is kept in discord-uploads.json to make failures easy to diagnose.
+        this.cache[key] = { url: null, at: Date.now(), error };
         return null;
       })
       .finally(() => {
@@ -64,6 +69,20 @@ class CoverUploader {
       });
     this.pending.set(key, job);
     return job;
+  }
+
+  async uploadWithRetry(file) {
+    let lastError;
+    for (const delay of ATTEMPT_DELAYS_MS) {
+      if (delay) await new Promise((r) => setTimeout(r, delay));
+      try {
+        return await this.upload(file);
+      } catch (err) {
+        lastError = err;
+        if (err.message === 'unreadable image') break; // retrying won't help
+      }
+    }
+    throw lastError;
   }
 
   async upload(file) {
@@ -77,9 +96,11 @@ class CoverUploader {
     form.append('reqtype', 'fileupload');
     form.append('time', EXPIRY);
     form.append('fileToUpload', new Blob([img.toJPEG(88)], { type: 'image/jpeg' }), 'cover.jpg');
-    const res = await fetch(API, { method: 'POST', body: form, signal: AbortSignal.timeout(20000) });
+    const res = await fetch(API, { method: 'POST', body: form, signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS) });
     const text = (await res.text()).trim();
-    if (!res.ok || !/^https:\/\/litter\.catbox\.moe\/[\w.-]+$/.test(text)) throw new Error('upload failed: ' + text.slice(0, 100));
+    if (!res.ok || !/^https:\/\/litter\.catbox\.moe\/[\w.-]+$/.test(text)) {
+      throw new Error(`Litterbox answered HTTP ${res.status}: ${text.replace(/\s+/g, ' ').slice(0, 120)}`);
+    }
     return text;
   }
 
