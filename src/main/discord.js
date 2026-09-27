@@ -139,6 +139,9 @@ class DiscordPresence {
 
   // np: { title, artist, album, duration, position, speed, playing, showPaused, lookupCovers } or null
   update(np) {
+    // Remember when this position was measured: the status may be rebuilt seconds later
+    // (when a cover finishes uploading), and the progress bar must still line up with the song.
+    if (np) np.at = Date.now();
     this.np = np;
     this.refresh();
   }
@@ -201,9 +204,9 @@ class DiscordPresence {
     }
     if (np.playing && np.duration > 0) {
       const speed = np.speed || 1;
-      const now = Date.now();
-      activity.startTimestamp = Math.round(now - (np.position / speed) * 1000);
-      activity.endTimestamp = Math.round(now + ((np.duration - np.position) / speed) * 1000);
+      const measuredAt = np.at || Date.now();
+      activity.startTimestamp = Math.round(measuredAt - (np.position / speed) * 1000);
+      activity.endTimestamp = Math.round(measuredAt + ((np.duration - np.position) / speed) * 1000);
     } else if (!np.playing && image) {
       // No progress bar while paused; a pause badge on the cover makes that obvious at a glance.
       activity.smallImageKey = PAUSE_ICON;
