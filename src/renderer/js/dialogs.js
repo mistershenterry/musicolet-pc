@@ -503,7 +503,7 @@ const Dialogs = {
       h('label', { class: 'settings-row' },
         h('div', {},
           h('div', { text: 'Show the song\'s own cover' }),
-          h('div', { class: 'muted small', text: 'Discord can\'t show pictures stored on your PC, so the cover of the playing song is uploaded to Litterbox (litterbox.catbox.moe), which deletes it after 3 days. Only the picture is uploaded, never the song.' }),
+          h('div', { class: 'muted small', text: 'Discord can\'t show pictures stored on your PC, so the cover of the playing song is uploaded to Litterbox (litterbox.catbox.moe), which deletes it after 3 days, or to uguu.se (deleted after 3 hours) if Litterbox is unavailable. Only the picture is uploaded, never the song.' }),
         ),
         h('label', { class: 'switch' }, upload, h('span', { class: 'slider' })),
       ),

@@ -156,7 +156,8 @@ The status is removed when you close the app.
 Musicolet PC picks the cover like this:
 
 1. **The song's own cover** (the one you see in the app) is uploaded to [Litterbox](https://litterbox.catbox.moe), a free image
-   host that deletes files after 3 days. Only the picture is uploaded (shrunk to 512 px), never the song. Each cover is
+   host that deletes files after 3 days. If Litterbox is down or refuses uploads, [uguu.se](https://uguu.se) is used
+   instead (files deleted after 3 hours). Only the picture is uploaded (shrunk to 512 px), never the song. Each cover is
    uploaded once and reused until it expires. Anyone with the link can open the picture while it exists.
    Turn it off with **Settings → Discord → Show the song's own cover**.
 2. **Online search:** songs without their own cover are looked up on iTunes (then Deezer) by artist and album name, and a result is
