@@ -431,7 +431,7 @@ const Dialogs = {
       ),
       this.discordSection(section),
       section('Keyboard shortcuts', h('div', { class: 'shortcuts' }, ...shortcuts.flatMap(([k, d]) => [h('kbd', { text: k }), h('span', { text: d })]))),
-      section('About', h('p', { class: 'muted small', text: 'Musicolet PC — an unofficial desktop music player inspired by Musicolet for Android. Fully offline: no ads, no accounts, no internet access.' })),
+      section('About', h('p', { class: 'muted small', text: 'Musicolet PC — an unofficial desktop music player inspired by Musicolet for Android. Works fully offline: no ads, no accounts. The only online feature is the optional Discord status.' })),
     );
     Modal.open({ title: 'Settings', body, wide: true, buttons: [{ label: 'Done', primary: true }] });
   },
@@ -468,6 +468,12 @@ const Dialogs = {
       Store.save();
       Presence.update();
     });
+    const covers = h('input', { type: 'checkbox', checked: d.covers });
+    covers.addEventListener('change', () => {
+      d.covers = covers.checked;
+      Store.save();
+      Presence.update();
+    });
     api.discordStatus().then(showStatus);
     // Refresh the status line while the dialog is open (it changes when Discord starts/quits).
     const timer = setInterval(() => {
@@ -488,6 +494,13 @@ const Dialogs = {
         clientId,
       ),
       h('label', { class: 'settings-row' }, h('div', { text: 'When playback is paused' }), paused),
+      h('label', { class: 'settings-row' },
+        h('div', {},
+          h('div', { text: 'Show album covers' }),
+          h('div', { class: 'muted small', text: 'Discord can\'t show pictures stored on your PC, so covers are found online by artist and album name (iTunes, then Deezer). Only used while Discord status is on.' }),
+        ),
+        h('label', { class: 'switch' }, covers, h('span', { class: 'slider' })),
+      ),
     );
   },
 

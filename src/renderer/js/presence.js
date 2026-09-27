@@ -32,6 +32,7 @@ const Presence = {
       speed: Store.state.settings.speed,
       playing: Player.playing,
       showPaused: this.cfg.showPaused,
+      lookupCovers: this.cfg.covers,
     });
   },
 };

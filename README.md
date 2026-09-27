@@ -1,7 +1,8 @@
 # Musicolet PC
 
 A fast, **offline** desktop music player for Windows (also runs on macOS and Linux), inspired by
-[Musicolet](https://krosbits.in/musicolet/) for Android. No ads, no accounts, no internet: it just plays the music files on your computer.
+[Musicolet](https://krosbits.in/musicolet/) for Android. No ads, no accounts, and it works without internet: it just plays the music files on your computer.
+(The only online feature is the optional Discord status, which is off by default.)
 
 > Unofficial fan project. Not affiliated with Krosbits or the Musicolet app.
 
@@ -25,7 +26,7 @@ Built to match what makes Musicolet great:
 | **Quick search & sorting** | Every list has a search box and sort options (title, artist, album, year, duration, date added, file name, play count…). |
 | **Multi-select** | Click, Ctrl+click, Shift+click, Ctrl+A, **Invert selection**, then act on all selected songs at once. |
 | **Playback** | Speed control (0.5×–2×), repeat queue / repeat one, configurable previous button, resumes where you left off, media keys and the Windows media overlay. |
-| **Discord Rich Presence** | Optional "Listening to" status on your Discord profile with the song, artist and a live progress bar. Off by default. |
+| **Discord Rich Presence** | Optional "Listening to" status on your Discord profile with the song, artist, album cover and a live progress bar that switches to "Paused" when you pause. Off by default. |
 | **Themes** | Dark, Black (AMOLED) and Light, with any accent color. |
 
 Supported formats: **MP3, FLAC, OGG, Opus, M4A/AAC, WAV, WebM**.
@@ -147,12 +148,17 @@ Lines with timestamps like `[01:23.45]` are shown as synced lyrics.
 ### Discord status
 
 Turn it on in **Settings → Discord → Show what I'm listening to on Discord**. Your Discord status then shows
-*Listening to Musicolet PC* with the song title, artist and a progress bar. You can choose whether to show "Paused" or hide the
-status while playback is paused, and it is removed when you close the app.
+*Listening to Musicolet PC* with the song title, artist, album cover and a progress bar. When you pause, the progress bar
+is replaced by "Paused" with a ⏸ badge on the cover (or you can hide the status while paused). The status is removed when you close the app.
+
+**Album covers:** Discord can only show pictures that are online, not the covers stored on your PC. So Musicolet PC looks the
+cover up on iTunes (then Deezer) using the song's artist and album name, and only uses it when the names match. Songs that
+aren't on those services (for example YouTube downloads, remixes or untagged files) show the app icon instead. Only the artist,
+album and title are sent, only while Discord status is on, and results are cached. Turn it off with
+**Settings → Discord → Show album covers**.
 
 It needs the **Discord desktop app** running on the same PC (the browser version of Discord can't receive it).
 If Discord starts after Musicolet PC, it connects automatically within a few seconds.
-Album covers can't be shown in Discord, because they only exist on your computer.
 
 Want your own name or icon in the status? Create an application at <https://discord.com/developers/applications>
 and paste its Application ID into **Settings → Discord → Custom Application ID**.

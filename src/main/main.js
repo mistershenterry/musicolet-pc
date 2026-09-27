@@ -4,6 +4,7 @@ const fs = require('fs');
 const { Library, trackId } = require('./library');
 const { registerSchemes, handleProtocol } = require('./protocol');
 const { DiscordPresence } = require('./discord');
+const { CoverLookup } = require('./coverlookup');
 
 const discord = new DiscordPresence();
 
@@ -207,6 +208,7 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     library = new Library(app.getPath('userData'));
+    discord.covers = new CoverLookup(userFile('discord-covers.json'));
     handleProtocol({
       rendererDir: RENDERER_DIR,
       coverDir: library.coverDir,
