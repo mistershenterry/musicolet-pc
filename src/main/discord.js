@@ -2,6 +2,7 @@
 // Talks to the local Discord desktop app over IPC. Album covers come from CoverLookup (iTunes/Deezer).
 const { Client } = require('@xhayper/discord-rpc');
 
+const PLAYING = 0;
 const LISTENING = 2;
 const STATUS_DETAILS = 2; // member list shows "Listening to <song title>"
 const RETRY_MS = 15000;
@@ -108,20 +109,29 @@ class DiscordPresence {
     }
   }
 
-  // The Discord app's own icon, used as the picture when no album cover is found.
+  // The Discord app's own icon (set in the Discord developer portal), used when no album cover is found.
+  cachedAppIcon() {
+    const hit = this.appIcons.get(this.clientId);
+    if (!hit) return undefined;
+    // An app without an icon is checked again every 10 minutes, in case one gets uploaded.
+    if (!hit.url && Date.now() - hit.at > 10 * 60 * 1000) return undefined;
+    return hit.url;
+  }
+
   async appIcon() {
     const id = this.clientId;
     if (!id) return null;
-    if (this.appIcons.has(id)) return this.appIcons.get(id);
-    this.appIcons.set(id, null);
+    const cached = this.cachedAppIcon();
+    if (cached !== undefined) return cached;
+    this.appIcons.set(id, { url: null, at: Date.now() }); // one request at a time
     try {
       const res = await fetch(`https://discord.com/api/v10/applications/${id}/rpc`, { signal: AbortSignal.timeout(6000) });
       const info = await res.json();
       const url = info.icon ? `https://cdn.discordapp.com/app-icons/${id}/${info.icon}.png?size=512` : null;
-      this.appIcons.set(id, url);
+      this.appIcons.set(id, { url, at: Date.now() });
       return url;
     } catch {
-      this.appIcons.delete(id); // try again next time
+      this.appIcons.delete(id); // offline: try again next time
       return null;
     }
   }
@@ -135,7 +145,7 @@ class DiscordPresence {
   refresh() {
     const np = this.np;
     let cover = null;
-    if (np?.lookupCovers && this.covers) {
+    if (np && !np.idle && np.lookupCovers && this.covers) {
       const song = { artist: np.artist, album: np.album, title: np.title };
       const cached = this.covers.peek(song);
       if (cached === undefined) {
@@ -147,7 +157,7 @@ class DiscordPresence {
         cover = cached;
       }
     }
-    const fallback = this.appIcons.get(this.clientId);
+    const fallback = this.cachedAppIcon();
     if (fallback === undefined && this.enabled) this.appIcon().then((url) => url && this.np === np && this.refresh());
     this.activity = this.build(np, cover, fallback || null);
     this.flush();
@@ -155,6 +165,15 @@ class DiscordPresence {
 
   build(np, cover = null, fallbackImage = null) {
     if (!np) return null;
+    if (np.idle) {
+      // App open but nothing played yet (or nothing loaded): "Playing Musicolet PC · Idling..."
+      const idle = { type: PLAYING, details: 'Idling...', instance: false };
+      if (fallbackImage) {
+        idle.largeImageKey = fallbackImage;
+        idle.largeImageText = 'Musicolet PC';
+      }
+      return idle;
+    }
     if (!np.playing && !np.showPaused) return null;
     const artist = np.artist || 'Unknown artist';
     const activity = {
@@ -184,6 +203,7 @@ class DiscordPresence {
 
   async flush() {
     if (!this.ready || !this.client?.user) return;
+    if (process.env.MUSICOLET_PC_DEBUG) console.log('[discord]', JSON.stringify(this.activity));
     try {
       if (this.activity) await this.client.user.setActivity(this.activity);
       else await this.client.user.clearActivity();

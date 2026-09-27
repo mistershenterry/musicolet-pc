@@ -1,8 +1,12 @@
 // Discord Rich Presence: sends the current song to the main process whenever playback changes.
 const Presence = {
+  // Until something is played after launch, Discord shows "Idling..." instead of the restored (paused) song.
+  hasPlayed: false,
+
   init() {
     const update = debounce(() => this.update(), 400);
     for (const ev of ['track', 'state', 'meta', 'speed']) Player.on(ev, update);
+    Player.audio.addEventListener('play', () => (this.hasPlayed = true));
     Player.audio.addEventListener('seeked', update);
     Player.audio.addEventListener('loadedmetadata', update);
     this.configure();
@@ -21,7 +25,7 @@ const Presence = {
   update() {
     if (!this.cfg.enabled) return;
     const t = Store.track(Player.currentId);
-    if (!t) return api.discordUpdate(null);
+    if (!t || !this.hasPlayed) return api.discordUpdate({ idle: true });
     const a = Player.audio;
     api.discordUpdate({
       title: t.title,

@@ -149,11 +149,12 @@ Lines with timestamps like `[01:23.45]` are shown as synced lyrics.
 
 Turn it on in **Settings → Discord → Show what I'm listening to on Discord**. Your Discord status then shows
 *Listening to Musicolet PC* with the song title, artist, album cover and a progress bar. When you pause, the progress bar
-is replaced by "Paused" with a ⏸ badge on the cover (or you can hide the status while paused). The status is removed when you close the app.
+is replaced by "Paused" with a ⏸ badge on the cover (or you can hide the status while paused). Right after you open the app, until you play something, it shows *Playing Musicolet PC · Idling...*.
+The status is removed when you close the app.
 
 **Album covers:** Discord can only show pictures that are online, not the covers stored on your PC. So Musicolet PC looks the
 cover up on iTunes (then Deezer) using the song's artist and album name, and only uses it when the names match. Songs that
-aren't on those services (for example YouTube downloads, remixes or untagged files) show the app icon instead. Only the artist,
+aren't on those services (for example YouTube downloads, fan remixes or untagged files) show the Musicolet PC icon instead. Only the artist,
 album and title are sent, only while Discord status is on, and results are cached. Turn it off with
 **Settings → Discord → Show album covers**.
 
