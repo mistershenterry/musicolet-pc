@@ -25,6 +25,7 @@ Built to match what makes Musicolet great:
 | **Quick search & sorting** | Every list has a search box and sort options (title, artist, album, year, duration, date added, file name, play count…). |
 | **Multi-select** | Click, Ctrl+click, Shift+click, Ctrl+A, **Invert selection**, then act on all selected songs at once. |
 | **Playback** | Speed control (0.5×–2×), repeat queue / repeat one, configurable previous button, resumes where you left off, media keys and the Windows media overlay. |
+| **Discord Rich Presence** | Optional "Listening to" status on your Discord profile with the song, artist and a live progress bar. Off by default. |
 | **Themes** | Dark, Black (AMOLED) and Light, with any accent color. |
 
 Supported formats: **MP3, FLAC, OGG, Opus, M4A/AAC, WAV, WebM**.
@@ -143,6 +144,19 @@ Musicolet PC looks for lyrics in this order:
 
 Lines with timestamps like `[01:23.45]` are shown as synced lyrics.
 
+### Discord status
+
+Turn it on in **Settings → Discord → Show what I'm listening to on Discord**. Your Discord status then shows
+*Listening to Musicolet PC* with the song title, artist and a progress bar. You can choose whether to show "Paused" or hide the
+status while playback is paused, and it is removed when you close the app.
+
+It needs the **Discord desktop app** running on the same PC (the browser version of Discord can't receive it).
+If Discord starts after Musicolet PC, it connects automatically within a few seconds.
+Album covers can't be shown in Discord, because they only exist on your computer.
+
+Want your own name or icon in the status? Create an application at <https://discord.com/developers/applications>
+and paste its Application ID into **Settings → Discord → Custom Application ID**.
+
 ### Tag editing notes
 
 - **MP3**: all fields, album art and lyrics can be edited.
@@ -178,7 +192,7 @@ src/
     js/        store (state), player (audio + EQ + sleep timer), views (tabs), dialogs, lyrics…
 ```
 
-Built with [Electron](https://www.electronjs.org/), [music-metadata](https://github.com/Borewit/music-metadata) and [node-id3](https://github.com/Zazama/node-id3). Icons from Google's Material Icons (Apache 2.0).
+Built with [Electron](https://www.electronjs.org/), [music-metadata](https://github.com/Borewit/music-metadata), [node-id3](https://github.com/Zazama/node-id3) and [@xhayper/discord-rpc](https://github.com/xhayper/discord-rpc). Icons from Google's Material Icons (Apache 2.0).
 
 ## License
 

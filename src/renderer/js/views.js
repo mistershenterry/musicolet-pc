@@ -106,7 +106,7 @@ const Views = {
 
   welcome() {
     return h('div', { class: 'empty-state welcome' },
-      h('div', { class: 'brand-mark big' }),
+      h('img', { class: 'brand-mark big', src: 'img/icon.png', alt: '' }),
       h('h1', { text: 'Welcome to Musicolet PC' }),
       h('p', { class: 'muted', text: 'A fast, offline music player with multiple queues, synced lyrics, a tag editor and an equalizer. Add the folder where you keep your music to get started.' }),
       textBtn('Add music folder', () => App.addFolder(), { iconName: 'add', primary: true }),

@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/mistershenterry/musicolet-pc#readme",
   "dependencies": {
+    "@xhayper/discord-rpc": "^1.5.1",
     "music-metadata": "^11.16.1",
     "node-id3": "^0.2.9"
   },
@@ -43,11 +44,18 @@
       "target": [
         "nsis",
         "portable"
-      ]
+      ],
+      "icon": "src/assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "icon": "src/assets/icon.png"
+    },
+    "linux": {
+      "icon": "src/assets/icon.png"
     }
   }
 }

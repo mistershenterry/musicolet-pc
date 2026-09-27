@@ -429,10 +429,66 @@ const Dialogs = {
           prevSel,
         ),
       ),
+      this.discordSection(section),
       section('Keyboard shortcuts', h('div', { class: 'shortcuts' }, ...shortcuts.flatMap(([k, d]) => [h('kbd', { text: k }), h('span', { text: d })]))),
       section('About', h('p', { class: 'muted small', text: 'Musicolet PC — an unofficial desktop music player inspired by Musicolet for Android. Fully offline: no ads, no accounts, no internet access.' })),
     );
     Modal.open({ title: 'Settings', body, wide: true, buttons: [{ label: 'Done', primary: true }] });
+  },
+
+  discordSection(section) {
+    const d = Store.state.settings.discord;
+    const status = h('span', { class: 'muted small' });
+    const showStatus = (s) =>
+      (status.textContent = {
+        off: 'Off',
+        noid: 'No valid Application ID. Enter one below.',
+        waiting: 'Not connected. Make sure the Discord desktop app is running (retrying automatically).',
+        connected: 'Connected to Discord ✓',
+        rejected: 'Discord rejected the Application ID. Check that it was copied correctly.',
+      }[s]);
+    const apply = async () => {
+      Store.save();
+      showStatus(await Presence.configure());
+    };
+    const enabled = h('input', { type: 'checkbox', checked: d.enabled });
+    enabled.addEventListener('change', () => {
+      d.enabled = enabled.checked;
+      apply();
+    });
+    const clientId = h('input', { class: 'input', type: 'text', value: d.clientId, placeholder: 'Built-in (leave empty)', spellcheck: 'false' });
+    clientId.addEventListener('change', () => {
+      d.clientId = clientId.value.trim();
+      apply();
+    });
+    const paused = h('select', { class: 'input' }, h('option', { value: 'show', text: 'Show "Paused"' }), h('option', { value: 'hide', text: 'Hide the status' }));
+    paused.value = d.showPaused ? 'show' : 'hide';
+    paused.addEventListener('change', () => {
+      d.showPaused = paused.value === 'show';
+      Store.save();
+      Presence.update();
+    });
+    api.discordStatus().then(showStatus);
+    // Refresh the status line while the dialog is open (it changes when Discord starts/quits).
+    const timer = setInterval(() => {
+      if (!status.isConnected) return clearInterval(timer);
+      api.discordStatus().then(showStatus);
+    }, 2000);
+
+    return section('Discord',
+      h('label', { class: 'settings-row' },
+        h('div', {}, h('div', { text: 'Show what I\'m listening to on Discord' }), status),
+        h('label', { class: 'switch' }, enabled, h('span', { class: 'slider' })),
+      ),
+      h('label', { class: 'settings-row' },
+        h('div', {},
+          h('div', { text: 'Custom Application ID (optional)' }),
+          h('div', { class: 'muted small', html: 'Leave empty to appear as "Musicolet PC". To use a different name or icon, create an application at <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers</a> and paste its Application ID here.' }),
+        ),
+        clientId,
+      ),
+      h('label', { class: 'settings-row' }, h('div', { text: 'When playback is paused' }), paused),
+    );
   },
 
   // ---------- album art viewer ----------

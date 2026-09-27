@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const { Library, trackId } = require('./library');
 const { registerSchemes, handleProtocol } = require('./protocol');
+const { DiscordPresence } = require('./discord');
+
+const discord = new DiscordPresence();
 
 registerSchemes();
 
@@ -40,6 +43,7 @@ function createWindow() {
     minHeight: 600,
     title: 'Musicolet PC',
     backgroundColor: '#121214',
+    icon: path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -115,6 +119,10 @@ function registerIpc() {
     library.removeTracks(removed);
     return removed;
   });
+
+  ipcMain.handle('discord:configure', (_e, cfg) => discord.configure(cfg));
+  ipcMain.handle('discord:status', () => discord.status());
+  ipcMain.on('discord:update', (_e, np) => discord.update(np));
 
   ipcMain.handle('shell:showInFolder', (_e, file) => shell.showItemInFolder(file));
 
@@ -194,6 +202,9 @@ if (!gotLock) {
     }
   });
 
+  // Lets Windows group the taskbar button and pinned shortcut under our own icon instead of Electron's.
+  if (process.platform === 'win32') app.setAppUserModelId('com.mistershenterry.musicoletpc');
+
   app.whenReady().then(() => {
     library = new Library(app.getPath('userData'));
     handleProtocol({
@@ -206,4 +217,13 @@ if (!gotLock) {
   });
 
   app.on('window-all-closed', () => app.quit());
+
+  let presenceCleared = false;
+  app.on('before-quit', (e) => {
+    if (presenceCleared) return;
+    presenceCleared = true;
+    e.preventDefault();
+    // Remove the "Listening to" status before exiting (don't wait more than a second).
+    Promise.race([discord.disconnect(), new Promise((r) => setTimeout(r, 1000))]).finally(() => app.quit());
+  });
 }

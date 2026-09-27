@@ -20,7 +20,7 @@ function defaultState() {
     stats: {},
     settings: {
       theme: 'dark',
-      accent: '#ff8a3d',
+      accent: '#65f0ff',
       volume: 0.8,
       muted: false,
       speed: 1,
@@ -30,6 +30,7 @@ function defaultState() {
       folderMode: 'tree', // tree | flat
       lyricsSize: 18,
       eq: { enabled: false, preset: 'Flat', gains: EQ_BANDS.map(() => 0), preamp: 0 },
+      discord: { enabled: false, clientId: '', showPaused: true },
       sorts: {},
     },
     ui: { tab: 'songs', panel: 'queue' },
@@ -69,6 +70,9 @@ const Store = {
     const def = defaultState();
     this.state = saved ? { ...def, ...saved, settings: { ...def.settings, ...saved.settings }, ui: { ...def.ui, ...saved.ui } } : def;
     this.state.settings.eq = { ...def.settings.eq, ...this.state.settings.eq };
+    this.state.settings.discord = { ...def.settings.discord, ...this.state.settings.discord };
+    // The old default accent (orange) becomes the new default (cyan); custom colors are kept.
+    if (this.state.settings.accent === '#ff8a3d') this.state.settings.accent = def.settings.accent;
     if (!this.state.queues.length) this.state.queues = def.queues;
     if (!this.getQueue(this.state.activeQueueId)) this.state.activeQueueId = this.state.queues[0].id;
     this.rebuild();

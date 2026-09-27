@@ -13,6 +13,7 @@ const App = {
     this.initNowPlaying();
     Views.init();
     this.initShortcuts();
+    Presence.init();
 
     const q = Store.activeQueue();
     if (q.items.length) Player.load(false, q.position || 0);

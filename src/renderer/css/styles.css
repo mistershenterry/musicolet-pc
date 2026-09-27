@@ -1,5 +1,5 @@
 :root {
-  --accent: #ff8a3d;
+  --accent: #65f0ff;
   --bg: #121214;
   --bg-2: #18181b;
   --bg-3: #1f1f23;
@@ -35,7 +35,7 @@
   --text-2: #5d5d68;
   --text-3: #93939e;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-  --accent-text: color-mix(in srgb, var(--accent) 85%, black);
+  --accent-text: color-mix(in srgb, var(--accent) 45%, black);
   color-scheme: light;
 }
 
@@ -167,31 +167,20 @@ textarea {
   letter-spacing: 0.2px;
 }
 .brand b {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .brand-mark {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 8px;
-  background: conic-gradient(from 210deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #7a5cff), var(--accent));
-  position: relative;
   flex-shrink: 0;
-}
-.brand-mark::after {
-  content: '';
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  background: var(--bg-2);
+  display: block;
 }
 .brand-mark.big {
-  width: 84px;
-  height: 84px;
+  width: 96px;
+  height: 96px;
   border-radius: 24px;
-}
-.brand-mark.big::after {
-  inset: 28px;
-  background: var(--bg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 #nav {
   display: flex;
@@ -265,7 +254,7 @@ textarea {
   color: var(--text);
 }
 .icon-btn.on {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .icon-btn:disabled {
   opacity: 0.4;
@@ -319,7 +308,7 @@ textarea {
   background: var(--bg-hover);
 }
 .pill-btn.on {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 .input {
@@ -576,7 +565,7 @@ input[type='range']:active::-webkit-slider-thumb {
   color: var(--text-2);
 }
 .tl-fav {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .tl-dur {
   color: var(--text-2);
@@ -777,7 +766,7 @@ input[type='range']:active::-webkit-slider-thumb {
   background: var(--bg-hover);
 }
 .folder-ic {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .folder-main {
   flex: 1;
@@ -926,7 +915,7 @@ input[type='range']:active::-webkit-slider-thumb {
   text-decoration: underline;
 }
 #np-fav.on {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .np-panel {
   flex: 1;
@@ -1388,7 +1377,7 @@ input[type='range']:active::-webkit-slider-thumb {
   flex: 1;
 }
 .ic-wrap {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .color-input {
   width: 44px;
@@ -1512,4 +1501,7 @@ kbd {
   .search {
     width: 150px;
   }
+}
+.settings a {
+  color: var(--accent-text);
 }

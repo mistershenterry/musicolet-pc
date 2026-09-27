@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('api', {
   writeTags: (ids, changes) => ipcRenderer.invoke('track:writeTags', ids, changes),
   trash: (ids) => ipcRenderer.invoke('track:trash', ids),
 
+  discordConfigure: (cfg) => ipcRenderer.invoke('discord:configure', cfg),
+  discordStatus: () => ipcRenderer.invoke('discord:status'),
+  discordUpdate: (np) => ipcRenderer.send('discord:update', np),
+
   showInFolder: (file) => ipcRenderer.invoke('shell:showInFolder', file),
   pickImage: () => ipcRenderer.invoke('dialog:pickImage'),
   saveCover: (cover, name) => ipcRenderer.invoke('cover:save', cover, name),
