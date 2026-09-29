@@ -15,7 +15,7 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Skip if this version is already released
         id: check
@@ -25,30 +25,38 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if gh release view "v$VERSION" >/dev/null 2>&1; then
+          # Released = has latest.yml, which is what the app's updater reads.
+          if gh release view "v$VERSION" --json assets -q '.assets[].name' 2>/dev/null | grep -qx latest.yml; then
             echo "v$VERSION is already released."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.check.outputs.skip != 'true'
         with:
           node-version: 22
           cache: npm
 
-      - name: Build and publish
+      - name: Build
         if: steps.check.outputs.skip != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm ci
-          npx electron-builder --win nsis portable --publish always
+          npx electron-builder --win nsis portable --publish never
 
-      - name: Release notes from the commit message
+      - name: Publish the GitHub Release
         if: steps.check.outputs.skip != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG="v${{ steps.check.outputs.version }}"
+          ls -l dist
+          # Release notes = the commit message without trailer lines.
           git log -1 --format=%B | grep -v -E '^[A-Za-z-]+-By:' > notes.txt
-          gh release edit "v${{ steps.check.outputs.version }}" --notes-file notes.txt
+          FILES=(dist/*.exe dist/*.blockmap dist/latest.yml)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${FILES[@]}" --clobber
+            gh release edit "$TAG" --notes-file notes.txt --latest
+          else
+            gh release create "$TAG" "${FILES[@]}" --title "$TAG" --notes-file notes.txt --latest
+          fi
