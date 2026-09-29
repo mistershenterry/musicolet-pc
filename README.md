@@ -170,10 +170,11 @@ The status is removed when you close the app.
 **Album covers:** Discord can only show pictures that are online, not the covers stored on your PC. So while Discord status is on,
 Musicolet PC picks the cover like this:
 
-1. **The song's own cover** (the one you see in the app) is uploaded to [Litterbox](https://litterbox.catbox.moe), a free image
-   host that deletes files after 3 days. If Litterbox is down or refuses uploads, [uguu.se](https://uguu.se) is used
-   instead (files deleted after 3 hours). Only the picture is uploaded (shrunk to 512 px), never the song. Each cover is
-   uploaded once and reused until it expires. Anyone with the link can open the picture while it exists.
+1. **The song's own cover** (the one you see in the app) is uploaded to a free image host that deletes it automatically:
+   [uguu.se](https://uguu.se) (files kept 3 hours) or [Litterbox](https://litterbox.catbox.moe) (files kept 3 days).
+   Choose which one is tried first in **Settings → Discord → Primary uploader** (default: uguu.se); if it fails, the other
+   one is used. Only the picture is uploaded (shrunk to 512 px), never the song. Each cover is uploaded once and reused
+   until it expires. Anyone with the link can open the picture while it exists.
    Turn it off with **Settings → Discord → Show the song's own cover**.
 2. **Online search:** songs without their own cover are looked up on iTunes (then Deezer) by artist and album name, and a result is
    only used when the names match. Turn it off with **Settings → Discord → Search for covers online**.
@@ -181,9 +182,6 @@ Musicolet PC picks the cover like this:
 
 It needs the **Discord desktop app** running on the same PC (the browser version of Discord can't receive it).
 If Discord starts after Musicolet PC, it connects automatically within a few seconds.
-
-Want your own name or icon in the status? Create an application at <https://discord.com/developers/applications>
-and paste its Application ID into **Settings → Discord → Custom Application ID**.
 
 ### Tag editing notes
 

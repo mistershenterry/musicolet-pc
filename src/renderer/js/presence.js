@@ -17,7 +17,7 @@ const Presence = {
   },
 
   async configure() {
-    const status = await api.discordConfigure({ enabled: this.cfg.enabled, clientId: this.cfg.clientId });
+    const status = await api.discordConfigure({ enabled: this.cfg.enabled });
     this.update();
     return status;
   },
@@ -31,6 +31,7 @@ const Presence = {
       id: t.id,
       coverFile: t.cover,
       uploadCovers: this.cfg.uploadCovers,
+      uploadHost: this.cfg.uploadHost,
       title: t.title,
       artist: t.artist,
       album: t.album,

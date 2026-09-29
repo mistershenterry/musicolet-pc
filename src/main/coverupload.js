@@ -2,9 +2,10 @@
 // Discord can only show images that are online. Each cover is uploaded once and its link reused until
 // shortly before the host deletes it.
 //
-// Hosts, in order:
-//   1. Litterbox (litterbox.catbox.moe) - deletes files after 72 hours.
-//   2. uguu.se - backup when Litterbox fails or blocks uploads (HTTP 403); deletes files after 3 hours.
+// Hosts (the user picks the primary in Settings, default uguu.se; the other one is the backup):
+//   - uguu.se - deletes files after 3 hours.
+//   - Litterbox (litterbox.catbox.moe) - deletes files after 72 hours.
+// A host that fails (or blocks uploads with HTTP 403) is followed by the other one.
 const { nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -95,12 +96,13 @@ class CoverUploader {
     return Date.now() - hit.at < this.reuseMs(hit) ? hit.url : undefined;
   }
 
-  async get(name) {
+  // primary: name of the host to try first ('uguu' or 'litterbox').
+  async get(name, primary) {
     const cached = this.peek(name);
     if (cached !== undefined) return cached;
     const { file, key } = this.key(name);
     if (this.pending.has(key)) return this.pending.get(key);
-    const job = this.uploadAnywhere(file)
+    const job = this.uploadAnywhere(file, primary)
       .then(({ url, host }) => {
         this.cache[key] = { url, host, at: Date.now() };
         return url;
@@ -121,10 +123,11 @@ class CoverUploader {
     return job;
   }
 
-  async uploadAnywhere(file) {
+  async uploadAnywhere(file, primary = 'uguu') {
     const jpeg = this.prepare(file);
     const errors = [];
-    for (const host of HOSTS) {
+    const order = [...HOSTS].sort((a, b) => (b.name === primary) - (a.name === primary));
+    for (const host of order) {
       if ((this.blockedUntil[host.name] || 0) > Date.now()) {
         errors.push(`${host.name} skipped (it refused uploads recently)`);
         continue;

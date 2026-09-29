@@ -1,6 +1,6 @@
 // Discord Rich Presence: shows "Listening to <song>" on the user's Discord profile.
 // Talks to the local Discord desktop app over IPC. Covers come from CoverUploader (the song's own cover,
-// via Litterbox) or CoverLookup (iTunes/Deezer search).
+// via an image host) or CoverLookup (iTunes/Deezer search).
 const { Client } = require('@xhayper/discord-rpc');
 
 const PLAYING = 0;
@@ -10,8 +10,8 @@ const RETRY_MS = 15000;
 // Small "paused" badge shown on the cover (Twemoji U+23F8, CC-BY 4.0).
 const PAUSE_ICON = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/23f8.png';
 
-// Built-in Discord application ("Musicolet PC"). Users can override it in Settings.
-const DEFAULT_CLIENT_ID = '1553799991640981567';
+// The "Musicolet PC" Discord application: its name and icon are what Discord shows.
+const CLIENT_ID = '1553799991640981567';
 
 // Discord requires 2–128 characters for text fields.
 function text(s) {
@@ -26,7 +26,7 @@ class DiscordPresence {
     this.np = null;
     this.appIcons = new Map(); // clientId -> icon URL (or null)
     this.client = null;
-    this.clientId = null;
+    this.clientId = CLIENT_ID;
     this.enabled = false;
     this.ready = false;
     this.activity = null;
@@ -34,22 +34,14 @@ class DiscordPresence {
   }
 
   status() {
-    if (!this.enabled) return this.wanted ? 'noid' : 'off';
-    if (this.ready) return 'connected';
-    return this.rejected ? 'rejected' : 'waiting';
+    if (!this.enabled) return 'off';
+    return this.ready ? 'connected' : 'waiting';
   }
 
-  async configure({ enabled, clientId }) {
-    const id = String(clientId || '').trim() || DEFAULT_CLIENT_ID;
-    const valid = /^\d{15,25}$/.test(id);
-    this.wanted = !!enabled;
-    this.enabled = !!enabled && valid;
-    if (!this.enabled || id !== this.clientId) {
-      await this.disconnect();
-      this.rejected = false;
-    }
-    this.clientId = valid ? id : null;
-    if (this.enabled) this.connect();
+  async configure({ enabled }) {
+    this.enabled = !!enabled;
+    if (!this.enabled) await this.disconnect();
+    else this.connect();
     return this.status();
   }
 
@@ -60,7 +52,6 @@ class DiscordPresence {
     c.on('ready', () => {
       if (this.client !== c) return;
       this.ready = true;
-      this.rejected = false;
       this.flush();
     });
     c.on('disconnected', () => {
@@ -69,11 +60,9 @@ class DiscordPresence {
       this.client = null;
       this.scheduleRetry();
     });
-    c.login().catch((err) => {
-      // Discord isn't running, or it refused this Application ID: try again later.
+    c.login().catch(() => {
+      // Discord isn't running (or not ready yet): try again later.
       if (this.client !== c) return;
-      // Discord closes the connection right away when it doesn't recognize the Application ID.
-      this.rejected = /Connection ended/i.test(err?.message || '');
       this.ready = false;
       this.client = null;
       Promise.resolve()
@@ -157,7 +146,7 @@ class DiscordPresence {
       const cached = this.uploader.peek(np.coverFile);
       if (cached === undefined) {
         waiting = true;
-        this.uploader.get(np.coverFile).then(() => stillCurrent() && this.refresh());
+        this.uploader.get(np.coverFile, np.uploadHost).then(() => stillCurrent() && this.refresh());
       } else {
         cover = cached; // null = upload failed recently: fall through to the online search
       }

@@ -472,10 +472,8 @@ const Dialogs = {
     const showStatus = (s) =>
       (status.textContent = {
         off: 'Off',
-        noid: 'No valid Application ID. Enter one below.',
         waiting: 'Not connected. Make sure the Discord desktop app is running (retrying automatically).',
         connected: 'Connected to Discord ✓',
-        rejected: 'Discord rejected the Application ID. Check that it was copied correctly.',
       }[s]);
     const apply = async () => {
       Store.save();
@@ -484,11 +482,6 @@ const Dialogs = {
     const enabled = h('input', { type: 'checkbox', checked: d.enabled });
     enabled.addEventListener('change', () => {
       d.enabled = enabled.checked;
-      apply();
-    });
-    const clientId = h('input', { class: 'input', type: 'text', value: d.clientId, placeholder: 'Built-in (leave empty)', spellcheck: 'false' });
-    clientId.addEventListener('change', () => {
-      d.clientId = clientId.value.trim();
       apply();
     });
     const paused = h('select', { class: 'input' }, h('option', { value: 'show', text: 'Show "Paused"' }), h('option', { value: 'hide', text: 'Hide the status' }));
@@ -505,8 +498,20 @@ const Dialogs = {
       Presence.update();
     });
     const upload = h('input', { type: 'checkbox', checked: d.uploadCovers });
+    const uploadHost = h('select', { class: 'input' },
+      h('option', { value: 'uguu', text: 'uguu.se (kept 3 hours)' }),
+      h('option', { value: 'litterbox', text: 'Litterbox (kept 3 days)' }),
+    );
+    uploadHost.value = d.uploadHost || 'uguu';
+    uploadHost.disabled = !d.uploadCovers;
     upload.addEventListener('change', () => {
       d.uploadCovers = upload.checked;
+      uploadHost.disabled = !upload.checked;
+      Store.save();
+      Presence.update();
+    });
+    uploadHost.addEventListener('change', () => {
+      d.uploadHost = uploadHost.value;
       Store.save();
       Presence.update();
     });
@@ -522,20 +527,20 @@ const Dialogs = {
         h('div', {}, h('div', { text: 'Show what I\'m listening to on Discord' }), status),
         h('label', { class: 'switch' }, enabled, h('span', { class: 'slider' })),
       ),
-      h('label', { class: 'settings-row' },
-        h('div', {},
-          h('div', { text: 'Custom Application ID (optional)' }),
-          h('div', { class: 'muted small', html: 'Leave empty to appear as "Musicolet PC". To use a different name or icon, create an application at <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers</a> and paste its Application ID here.' }),
-        ),
-        clientId,
-      ),
       h('label', { class: 'settings-row' }, h('div', { text: 'When playback is paused' }), paused),
       h('label', { class: 'settings-row' },
         h('div', {},
           h('div', { text: 'Show the song\'s own cover' }),
-          h('div', { class: 'muted small', text: 'Discord can\'t show pictures stored on your PC, so the cover of the playing song is uploaded to Litterbox (litterbox.catbox.moe), which deletes it after 3 days, or to uguu.se (deleted after 3 hours) if Litterbox is unavailable. Only the picture is uploaded, never the song.' }),
+          h('div', { class: 'muted small', text: 'Discord can\'t show pictures stored on your PC, so the cover of the playing song is uploaded to an image host that deletes it automatically. Only the picture is uploaded, never the song.' }),
         ),
         h('label', { class: 'switch' }, upload, h('span', { class: 'slider' })),
+      ),
+      h('label', { class: 'settings-row' },
+        h('div', {},
+          h('div', { text: 'Primary uploader' }),
+          h('div', { class: 'muted small', text: 'Covers go here first. If it fails, the other one is tried.' }),
+        ),
+        uploadHost,
       ),
       h('label', { class: 'settings-row' },
         h('div', {},
