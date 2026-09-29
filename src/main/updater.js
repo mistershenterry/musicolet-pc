@@ -23,7 +23,12 @@ function newer(a, b) {
 const toText = (notes) =>
   (Array.isArray(notes) ? notes.map((n) => n.note).join('\n') : notes || '')
     .split(/<hr\s*\/?>/i)[0]
-    .replace(/<\/(p|li|h\d)>|<br\s*\/?>/gi, '\n')
+    // Newlines in the HTML are only formatting, and GitHub turns wrapped lines of the release text
+    // into <br>, so both just join words. Only paragraph and list-item ends start a new line.
+    .replace(/\s*\n\s*/g, ' ')
+    .replace(/\s*<br\s*\/?>\s*/gi, ' ')
+    .replace(/<\/(p|h\d)>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
     .replace(/<li>/gi, '• ')
     .replace(/<[^>]+>/g, '')
     .replace(/&amp;/g, '&')
@@ -31,6 +36,8 @@ const toText = (notes) =>
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/[ \t]*\n[ \t]*/g, '\n')
+    .replace(/ {2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 

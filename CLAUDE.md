@@ -9,4 +9,5 @@ Electron music player. Main process in `src/main/`, UI in `src/renderer/` (plain
   triggers `.github/workflows/release.yml`, which builds the Windows installer/portable exe and publishes a GitHub
   Release; installed copies then show the update prompt (`src/main/updater.js`, `src/renderer/js/updates.js`).
 - The release notes are the commit message (minus trailer lines), so write the commit body for the user.
+  Wrapping lines is fine: the workflow joins wrapped lines back into whole bullets/paragraphs before publishing.
 - Commit trailer: use `Contributed-To-By: Claude <model> <noreply@anthropic.com>` instead of `Co-Authored-By`.

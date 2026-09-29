@@ -55,8 +55,16 @@ jobs:
           DL="https://github.com/${{ github.repository }}/releases/download/$TAG"
           # Release notes = the commit message without trailer lines, then a download guide.
           # The app's update prompt shows only the part above the "---" line.
+          # Commit messages are wrapped at ~80 columns, but GitHub shows every line break in release notes,
+          # so wrapped lines are joined back into whole bullets/paragraphs first.
+          UNWRAP='function flush() { if (buf != "") print buf; buf = "" }
+          /^[[:space:]]*$/ { flush(); print ""; next }
+          /^#/ { flush(); print; next }
+          /^[[:space:]]*([-*+]|[0-9]+\.)[[:space:]]/ { flush(); buf = $0; next }
+          { line = $0; sub(/^[[:space:]]+/, "", line); buf = (buf == "") ? line : buf " " line }
+          END { flush() }'
           {
-            git log -1 --format=%B | grep -v -E '^[A-Za-z-]+-By:'
+            git log -1 --format=%B | grep -v -E '^[A-Za-z-]+-By:' | awk "$UNWRAP"
             echo
             echo '---'
             echo
