@@ -19,8 +19,10 @@ function newer(a, b) {
 }
 
 // GitHub gives release notes as HTML; the renderer shows plain text.
+// Everything after the first horizontal rule is the download guide for the GitHub page, not for the app.
 const toText = (notes) =>
   (Array.isArray(notes) ? notes.map((n) => n.note).join('\n') : notes || '')
+    .split(/<hr\s*\/?>/i)[0]
     .replace(/<\/(p|li|h\d)>|<br\s*\/?>/gi, '\n')
     .replace(/<li>/gi, '• ')
     .replace(/<[^>]+>/g, '')
@@ -107,7 +109,7 @@ class Updater {
     const version = String(rel.tag_name || '').replace(/^v/, '');
     if (!newer(version, app.getVersion())) return this.set({ state: 'latest' });
     const asset = (rel.assets || []).find((a) => /portable.*\.exe$/i.test(a.name));
-    this.set({ state: 'available', version, notes: (rel.body || '').trim(), portable: true, url: asset?.browser_download_url || RELEASES_URL });
+    this.set({ state: 'available', version, notes: (rel.body || '').split(/^---\s*$/m)[0].trim(), portable: true, url: asset?.browser_download_url || RELEASES_URL });
   }
 
   install() {

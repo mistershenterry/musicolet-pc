@@ -42,6 +42,7 @@ Supported formats: **MP3, FLAC, OGG, Opus, M4A/AAC, WAV, WebM**.
 
 Go to the [latest release](https://github.com/mistershenterry/musicolet-pc/releases/latest) and download
 **`Musicolet-PC-Setup-x.y.z.exe`** (installer) or **`Musicolet-PC-Portable-x.y.z.exe`** (one file, no installation).
+Ignore `latest.yml` and the `.blockmap` file; the app uses those to update itself.
 
 Windows may show *"Windows protected your PC"* because the app isn't code-signed: click **More info → Run anyway**.
 

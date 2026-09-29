@@ -51,8 +51,25 @@ jobs:
         run: |
           TAG="v${{ steps.check.outputs.version }}"
           ls -l dist
-          # Release notes = the commit message without trailer lines.
-          git log -1 --format=%B | grep -v -E '^[A-Za-z-]+-By:' > notes.txt
+          VERSION="${{ steps.check.outputs.version }}"
+          DL="https://github.com/${{ github.repository }}/releases/download/$TAG"
+          # Release notes = the commit message without trailer lines, then a download guide.
+          # The app's update prompt shows only the part above the "---" line.
+          {
+            git log -1 --format=%B | grep -v -E '^[A-Za-z-]+-By:'
+            echo
+            echo '---'
+            echo
+            echo '### Which file do I download?'
+            echo
+            echo "- **[Musicolet-PC-Setup-$VERSION.exe]($DL/Musicolet-PC-Setup-$VERSION.exe)**: the installer. Pick this one if you're not sure. It installs the app and updates itself from then on."
+            echo "- [Musicolet-PC-Portable-$VERSION.exe]($DL/Musicolet-PC-Portable-$VERSION.exe): one file, no installation. Doesn't update itself."
+            echo
+            echo 'You can ignore `latest.yml` and the `.blockmap` file: the app uses them to find and download updates.'
+            echo
+            echo 'If Windows says *"Windows protected your PC"*, click **More info → Run anyway** (the app isn'"'"'t code-signed).'
+          } > notes.txt
+          cat notes.txt
           FILES=(dist/*.exe dist/*.blockmap dist/latest.yml)
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${FILES[@]}" --clobber
