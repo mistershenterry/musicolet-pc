@@ -14,6 +14,7 @@ const App = {
     Views.init();
     this.initShortcuts();
     Presence.init();
+    Updates.init();
 
     const q = Store.activeQueue();
     if (q.items.length) Player.load(false, q.position || 0);

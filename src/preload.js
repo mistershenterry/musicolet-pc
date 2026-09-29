@@ -24,6 +24,11 @@ contextBridge.exposeInMainWorld('api', {
   discordStatus: () => ipcRenderer.invoke('discord:status'),
   discordUpdate: (np) => ipcRenderer.send('discord:update', np),
 
+  updateState: () => ipcRenderer.invoke('update:state'),
+  checkForUpdate: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateState: (cb) => ipcRenderer.on('update:state', (_e, state) => cb(state)),
+
   showInFolder: (file) => ipcRenderer.invoke('shell:showInFolder', file),
   pickImage: () => ipcRenderer.invoke('dialog:pickImage'),
   saveCover: (cover, name) => ipcRenderer.invoke('cover:save', cover, name),

@@ -2,7 +2,7 @@
 
 A fast, **offline** desktop music player for Windows (also runs on macOS and Linux), inspired by
 [Musicolet](https://krosbits.in/musicolet/) for Android. No ads, no accounts, and it works without internet: it just plays the music files on your computer.
-(The only online feature is the optional Discord status, which is off by default.)
+(It only goes online to check for updates and, if you turn it on, for the Discord status.)
 
 > Unofficial fan project. Not affiliated with Krosbits or the Musicolet app.
 
@@ -38,7 +38,20 @@ Supported formats: **MP3, FLAC, OGG, Opus, M4A/AAC, WAV, WebM**.
 
 ---
 
-## Setup tutorial
+## Quick install (no setup needed)
+
+Go to the [latest release](https://github.com/mistershenterry/musicolet-pc/releases/latest) and download
+**`Musicolet-PC-Setup-x.y.z.exe`** (installer) or **`Musicolet-PC-Portable-x.y.z.exe`** (one file, no installation).
+
+Windows may show *"Windows protected your PC"* because the app isn't code-signed: click **More info → Run anyway**.
+
+The installed app **updates itself**: when a new version is out, it asks you, and one click on **Update now**
+downloads it, installs it and reopens the app. Your library, queues and settings are kept. You can also check by hand in
+**Settings → Updates**. (The portable `.exe` can't replace itself, so it tells you about new versions and downloads the new `.exe` for you.)
+
+The tutorial below is only needed if you want to run or build it from the source code.
+
+## Setup tutorial (from source)
 
 ### 1. Install Node.js (one time)
 
@@ -92,14 +105,15 @@ npm run dist
 ```
 
 The files appear in the `dist` folder:
-- `Musicolet PC Setup 1.0.0.exe` is an installer that adds Start menu and desktop shortcuts.
-- `Musicolet PC 1.0.0.exe` is a portable version: one file, no installation.
+- `Musicolet-PC-Setup-<version>.exe` is an installer that adds Start menu and desktop shortcuts.
+- `Musicolet-PC-Portable-<version>.exe` is a portable version: one file, no installation.
 
 (macOS: `npm run dist:mac` · Linux: `npm run dist:linux`)
 
 ### Updating
 
-If you used Git:
+If you installed the app, it updates itself (see [Quick install](#quick-install-no-setup-needed)).
+To update the source code, if you used Git:
 
 ```bash
 git pull
@@ -195,6 +209,12 @@ To keep this data somewhere else (for example on a USB stick next to the portabl
 - **New songs don't show up**: open **Settings → Rescan library**, and make sure the folder is listed under Library.
 - **Start fresh**: close the app and delete the data folder listed above.
 
+## Releasing a new version
+
+Every change bumps the last number of `version` in `package.json` (1.0.1 → 1.0.2 → …).
+When that change reaches `main`, the [Release workflow](.github/workflows/release.yml) builds the installer and portable `.exe`
+on GitHub and publishes them as a GitHub Release, and installed copies offer the update.
+
 ## Project structure
 
 ```
@@ -205,7 +225,7 @@ src/
     js/        store (state), player (audio + EQ + sleep timer), views (tabs), dialogs, lyrics…
 ```
 
-Built with [Electron](https://www.electronjs.org/), [music-metadata](https://github.com/Borewit/music-metadata), [node-id3](https://github.com/Zazama/node-id3) and [@xhayper/discord-rpc](https://github.com/xhayper/discord-rpc). Icons from Google's Material Icons (Apache 2.0).
+Built with [Electron](https://www.electronjs.org/), [electron-updater](https://www.electron.build/auto-update), [music-metadata](https://github.com/Borewit/music-metadata), [node-id3](https://github.com/Zazama/node-id3) and [@xhayper/discord-rpc](https://github.com/xhayper/discord-rpc). Icons from Google's Material Icons (Apache 2.0).
 
 ## License
 

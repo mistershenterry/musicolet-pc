@@ -215,6 +215,25 @@ textarea {
   flex-direction: column;
   gap: 10px;
 }
+.update-btn,
+.update-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.update-btn:disabled {
+  cursor: default;
+}
+.update-notes {
+  white-space: pre-wrap;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  margin: 10px 0;
+  border-radius: 8px;
+  background: var(--bg-active);
+  font-size: 13px;
+}
 #scan-status {
   padding: 0 10px;
 }

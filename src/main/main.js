@@ -6,8 +6,10 @@ const { registerSchemes, handleProtocol } = require('./protocol');
 const { DiscordPresence } = require('./discord');
 const { CoverLookup } = require('./coverlookup');
 const { CoverUploader } = require('./coverupload');
+const { Updater } = require('./updater');
 
 const discord = new DiscordPresence();
+const updater = new Updater();
 
 registerSchemes();
 
@@ -126,6 +128,10 @@ function registerIpc() {
   ipcMain.handle('discord:status', () => discord.status());
   ipcMain.on('discord:update', (_e, np) => discord.update(np));
 
+  ipcMain.handle('update:state', () => updater.state);
+  ipcMain.handle('update:check', () => updater.check());
+  ipcMain.handle('update:install', () => updater.install());
+
   ipcMain.handle('shell:showInFolder', (_e, file) => shell.showItemInFolder(file));
 
   ipcMain.handle('dialog:pickImage', async () => {
@@ -218,6 +224,9 @@ if (!gotLock) {
     });
     registerIpc();
     createWindow();
+    updater.start((state) => {
+      if (win && !win.isDestroyed()) win.webContents.send('update:state', state);
+    });
   });
 
   app.on('window-all-closed', () => app.quit());

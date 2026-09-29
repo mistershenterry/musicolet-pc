@@ -431,9 +431,39 @@ const Dialogs = {
       ),
       this.discordSection(section),
       section('Keyboard shortcuts', h('div', { class: 'shortcuts' }, ...shortcuts.flatMap(([k, d]) => [h('kbd', { text: k }), h('span', { text: d })]))),
-      section('About', h('p', { class: 'muted small', text: 'Musicolet PC — an unofficial desktop music player inspired by Musicolet for Android. Works fully offline: no ads, no accounts. The only online feature is the optional Discord status.' })),
+      this.updatesSection(section),
+      section('About', h('p', { class: 'muted small', text: 'Musicolet PC — an unofficial desktop music player inspired by Musicolet for Android. No ads, no accounts. It only goes online to check for updates and, if you turn it on, for the Discord status.' })),
     );
     Modal.open({ title: 'Settings', body, wide: true, buttons: [{ label: 'Done', primary: true }] });
+  },
+
+  updatesSection(section) {
+    const status = h('div', { class: 'muted small' });
+    const btn = textBtn('Check for updates', () => {
+      if (['available', 'error'].includes(Updates.s.state)) Updates.install();
+      else Updates.check();
+    }, { iconName: 'refresh' });
+    const title = h('div');
+    const unsubscribe = Updates.subscribe((s) => {
+      if (!status.isConnected && title.dataset.shown) return unsubscribe();
+      title.dataset.shown = '1';
+      title.textContent = `Version ${s.current || '?'}`;
+      status.textContent = {
+        unsupported: 'Updates are installed automatically in the installed app (not when running with npm start).',
+        idle: 'Checks for updates automatically.',
+        checking: 'Checking for updates…',
+        latest: 'You have the latest version ✓',
+        'check-failed': `Couldn't check for updates${s.error ? ` (${s.error})` : ''}.`,
+        available: `Version ${s.version} is available.`,
+        downloading: `Downloading version ${s.version}… ${s.percent || 0}%`,
+        installing: 'Installing… Musicolet PC will reopen in a moment.',
+        error: `Update failed${s.error ? `: ${s.error}` : ''}.`,
+      }[s.state] || '';
+      const label = Updates.label(s);
+      btn.querySelector('span').textContent = label || 'Check for updates';
+      btn.disabled = ['unsupported', 'checking', 'downloading', 'installing'].includes(s.state);
+    });
+    return section('Updates', h('div', { class: 'settings-row' }, h('div', {}, title, status), btn));
   },
 
   discordSection(section) {
