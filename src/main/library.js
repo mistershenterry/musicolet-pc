@@ -8,6 +8,8 @@ const AUDIO_EXT = new Set(['.mp3', '.flac', '.ogg', '.oga', '.opus', '.m4a', '.m
 const FOLDER_ART = ['cover', 'folder', 'front', 'albumart', 'album'];
 const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
 const IS_WIN = process.platform === 'win32';
+// 2: embedded covers are cached under a hash of the image (before: one file per album + folder).
+const COVER_SCHEME = 2;
 
 let mmPromise;
 const mm = () => (mmPromise ||= import('music-metadata'));
@@ -137,6 +139,8 @@ class Library {
       const old = this.data.tracks;
       const next = {};
       this.knownCovers = new Set(fs.readdirSync(this.coverDir));
+      // Libraries from an older cover scheme re-read every song once so each gets its own correct cover.
+      const rebuildCovers = this.data.coverScheme !== COVER_SCHEME;
       let done = 0;
       onProgress({ done, total: files.length });
       await pool(files, 6, async (file) => {
@@ -144,7 +148,8 @@ class Library {
         try {
           const st = await fs.promises.stat(file);
           const prev = old[id];
-          next[id] = prev && prev.mtime === st.mtimeMs && prev.size === st.size ? prev : await this.parse(file, st, prev);
+          const unchanged = !rebuildCovers && prev && prev.mtime === st.mtimeMs && prev.size === st.size;
+          next[id] = unchanged ? prev : await this.parse(file, st, prev);
         } catch {
           // unreadable file: skip it
         }
@@ -152,7 +157,9 @@ class Library {
         if (done % 20 === 0 || done === files.length) onProgress({ done, total: files.length });
       });
       this.data.tracks = next;
+      this.data.coverScheme = COVER_SCHEME;
       this.save();
+      this.removeUnusedCovers();
       return this.data;
     })();
     return this.scanning.finally(() => {
@@ -201,13 +208,32 @@ class Library {
     return t;
   }
 
+  // Delete cached cover files that no song points to anymore (old scheme, deleted songs, replaced art).
+  removeUnusedCovers() {
+    const used = new Set(Object.values(this.data.tracks).map((t) => t.cover).filter(Boolean));
+    let files = [];
+    try {
+      files = fs.readdirSync(this.coverDir);
+    } catch {
+      return;
+    }
+    for (const f of files) {
+      if (used.has(f)) continue;
+      try {
+        fs.unlinkSync(path.join(this.coverDir, f));
+      } catch {
+        // in use or already gone: try again after the next scan
+      }
+    }
+  }
+
   async coverFor(t, picture, force) {
-    // Songs of one album share a cover file; songs without an album tag each keep their own.
-    const key = hash(t.album ? norm(t.dir) + '|' + t.album.toLowerCase() : 'file|' + norm(t.path), 20);
     if (picture) {
+      // Named after the image itself: songs with identical art share one file, and songs with different art
+      // never do, even when they have the same album tag in the same folder.
       const ext = /png/i.test(picture.format) ? '.png' : '.jpg';
-      const name = key + ext;
-      if (force || !this.knownCovers?.has(name)) {
+      const name = 'i' + crypto.createHash('sha1').update(picture.data).digest('hex').slice(0, 20) + ext;
+      if (!this.knownCovers?.has(name) && !fs.existsSync(path.join(this.coverDir, name))) {
         await fs.promises.writeFile(path.join(this.coverDir, name), picture.data);
         this.knownCovers?.add(name);
       }
