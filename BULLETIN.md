@@ -8,4 +8,4 @@
 -->
 # Coming in the next update
 
-- [ ] Nothing announced yet. Check back soon!
+- [ ] A new menu for downloading songs with ease.
