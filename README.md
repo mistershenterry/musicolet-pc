@@ -214,6 +214,15 @@ Every change bumps the last number of `version` in `package.json` (1.0.1 → 1.0
 When that change reaches `main`, the [Release workflow](.github/workflows/release.yml) builds the installer and portable `.exe`
 on GitHub and publishes them as a GitHub Release, and installed copies offer the update.
 
+## Bulletin board
+
+**Settings → Bulletin board** shows the plans for the next update. It comes from [`BULLETIN.md`](BULLETIN.md) in this repo:
+edit that file on GitHub (the pencil icon, which also works from a phone) and every copy of the app shows the change, with a dot on
+the Settings button. It's checked when the app starts and every 15 minutes, so a change can take up to about 20 minutes
+to appear (GitHub also caches the file for up to 5 minutes). Editing the board doesn't need a new version or release.
+
+It supports `# headings`, `- lists`, `- [ ]` / `- [x]` checkboxes, `**bold**`, `*italic*` and `[links](https://...)`.
+
 ## Project structure
 
 ```
