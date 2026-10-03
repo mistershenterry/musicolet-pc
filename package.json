@@ -1,6 +1,6 @@
 {
   "name": "musicolet-pc",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "An offline desktop music player for Windows/macOS/Linux inspired by Musicolet for Android: multiple queues, folders, synced lyrics, tag editor, equalizer and sleep timer.",
   "main": "src/main/main.js",
   "scripts": {

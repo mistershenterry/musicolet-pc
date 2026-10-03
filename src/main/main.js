@@ -10,6 +10,8 @@ const { Updater } = require('./updater');
 
 const discord = new DiscordPresence();
 const updater = new Updater();
+const { Bulletin } = require('./bulletin');
+let bulletin = null;
 
 registerSchemes();
 
@@ -132,6 +134,9 @@ function registerIpc() {
   ipcMain.handle('update:check', () => updater.check());
   ipcMain.handle('update:install', () => updater.install());
 
+  ipcMain.handle('bulletin:get', () => bulletin.state);
+  ipcMain.handle('bulletin:check', () => bulletin.check());
+
   ipcMain.handle('shell:showInFolder', (_e, file) => shell.showItemInFolder(file));
 
   ipcMain.handle('dialog:pickImage', async () => {
@@ -217,6 +222,7 @@ if (!gotLock) {
     library = new Library(app.getPath('userData'));
     discord.covers = new CoverLookup(userFile('discord-covers.json'));
     discord.uploader = new CoverUploader(library.coverDir, userFile('discord-uploads.json'));
+    bulletin = new Bulletin(userFile('bulletin.json'));
     handleProtocol({
       rendererDir: RENDERER_DIR,
       coverDir: library.coverDir,
@@ -226,6 +232,9 @@ if (!gotLock) {
     createWindow();
     updater.start((state) => {
       if (win && !win.isDestroyed()) win.webContents.send('update:state', state);
+    });
+    bulletin.start((state) => {
+      if (win && !win.isDestroyed()) win.webContents.send('bulletin:state', state);
     });
   });
 

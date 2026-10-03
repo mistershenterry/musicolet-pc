@@ -29,6 +29,10 @@ contextBridge.exposeInMainWorld('api', {
   installUpdate: () => ipcRenderer.invoke('update:install'),
   onUpdateState: (cb) => ipcRenderer.on('update:state', (_e, state) => cb(state)),
 
+  bulletinGet: () => ipcRenderer.invoke('bulletin:get'),
+  bulletinCheck: () => ipcRenderer.invoke('bulletin:check'),
+  onBulletin: (cb) => ipcRenderer.on('bulletin:state', (_e, state) => cb(state)),
+
   showInFolder: (file) => ipcRenderer.invoke('shell:showInFolder', file),
   pickImage: () => ipcRenderer.invoke('dialog:pickImage'),
   saveCover: (cover, name) => ipcRenderer.invoke('cover:save', cover, name),

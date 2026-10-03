@@ -15,6 +15,7 @@ const App = {
     this.initShortcuts();
     Presence.init();
     Updates.init();
+    BulletinBoard.init();
 
     const q = Store.activeQueue();
     if (q.items.length) Player.load(false, q.position || 0);

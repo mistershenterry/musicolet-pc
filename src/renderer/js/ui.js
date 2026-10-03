@@ -133,7 +133,7 @@ const Modal = {
     $('#overlay-root').append(backdrop);
     const entry = { close, box };
     this.stack.push(entry);
-    setTimeout(() => box.querySelector('[autofocus], input, textarea, select')?.focus());
+    setTimeout(() => box.querySelector('[autofocus], input, textarea, select')?.focus({ preventScroll: true }));
     return entry;
   },
 

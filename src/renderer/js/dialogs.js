@@ -397,6 +397,7 @@ const Dialogs = {
     ];
 
     const body = h('div', { class: 'settings' },
+      this.bulletinSection(section),
       section('Library',
         rootsList,
         h('div', { class: 'row gap' },
@@ -435,6 +436,35 @@ const Dialogs = {
       section('About', h('p', { class: 'muted small', text: 'Musicolet PC — an unofficial desktop music player inspired by Musicolet for Android. No ads, no accounts. It only goes online to check for updates and, if you turn it on, for the Discord status.' })),
     );
     Modal.open({ title: 'Settings', body, wide: true, buttons: [{ label: 'Done', primary: true }] });
+  },
+
+  // Plans for the next update, from BULLETIN.md in the GitHub repo (refreshes by itself while open).
+  bulletinSection(section) {
+    const board = h('div', { class: 'bulletin' });
+    const meta = h('span', { class: 'muted small' });
+    const refresh = iconBtn('refresh', 'Check for changes', () => {
+      refresh.disabled = true;
+      BulletinBoard.refresh().finally(() => (refresh.disabled = false));
+    });
+    const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+    const unsubscribe = BulletinBoard.subscribe((s) => {
+      if (board.dataset.shown && !board.isConnected) return unsubscribe();
+      board.dataset.shown = '1';
+      if (s.text.trim()) {
+        board.innerHTML = Markdown.render(s.text);
+        board.classList.remove('empty');
+      } else {
+        board.textContent = s.status === 'failed' ? "Couldn't load the bulletin board. Check your internet connection." : s.status === 'never' ? 'Loading…' : 'Nothing posted yet.';
+        board.classList.add('empty');
+      }
+      meta.textContent = [s.updatedAt ? `Updated ${fmtDate(s.updatedAt)}` : '', s.status === 'failed' && s.text ? 'offline: showing the last copy' : ''].filter(Boolean).join(' · ');
+      if (board.isConnected) BulletinBoard.markSeen();
+    });
+    setTimeout(() => BulletinBoard.markSeen());
+    return section('Bulletin board',
+      h('div', { class: 'row center gap bulletin-head' }, h('span', { class: 'muted small', text: 'Plans for the next update' }), meta, h('div', { class: 'spacer' }), refresh),
+      board,
+    );
   },
 
   updatesSection(section) {
