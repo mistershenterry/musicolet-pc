@@ -9,3 +9,4 @@
 # Coming in the next update
 
 - [ ] A new menu for downloading songs with ease.
+- [ ] Fix huge scroll when auto scrolling to a lyric line.
