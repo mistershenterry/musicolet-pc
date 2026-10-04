@@ -109,7 +109,10 @@ const Lyrics = {
     const line = el.children[found];
     line?.classList.add('active');
     if (line && Date.now() > this.userScrollUntil && !el.closest('[hidden]')) {
-      el.scrollTo({ top: line.offsetTop - el.clientHeight / 2 + line.clientHeight / 2, behavior: force ? 'auto' : 'smooth' });
+      // Measure the line against the lyrics box itself (offsetTop would be relative to the whole page,
+      // which overshot by the height of everything above the box: album art, title, tabs).
+      const lineTop = line.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+      el.scrollTo({ top: lineTop - el.clientHeight / 2 + line.offsetHeight / 2, behavior: force ? 'auto' : 'smooth' });
     }
   },
 
