@@ -10,3 +10,4 @@
 
 - [ ] A new menu for downloading songs with ease.
 - [ ] Fix huge scroll when auto scrolling to a lyric line.
+- [ ] A "Find lyrics" button that finds synced lyrics online for songs without any.
