@@ -3,3 +3,8 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# Downloaded songs: keep the folder, never commit the audio
+Songs/*
+!Songs/.gitkeep
+!Songs/README.md
