@@ -183,6 +183,28 @@ Musicolet PC picks the cover like this:
 It needs the **Discord desktop app** running on the same PC (the browser version of Discord can't receive it).
 If Discord starts after Musicolet PC, it connects automatically within a few seconds.
 
+### Separating albums that share a name
+
+Songs with the same album name are shown as one album. If two unrelated songs are both tagged, say, *Override - Single*,
+right-click one of them → **Album group → Give this song its own album**. Musicolet PC writes a small code into that
+song's tags, and only songs with the same album name **and** the same code are grouped together. **Put back in the
+shared album** undoes it, and **Edit tags → Album group** lets you type a code yourself (use the same code on songs
+that belong together). Works for MP3 files.
+
+From the command line (or by asking Claude), the same thing works without opening the app:
+
+```bash
+npm run album-group -- dupes
+```
+
+lists album names shared by different artists, and
+
+```bash
+npm run album-group -- set v2 "Override.mp3"
+```
+
+gives a song the group `v2`. Run `npm run album-group` for all commands. Restart the app or use Settings → Rescan library afterwards.
+
 ### Tag editing notes
 
 - **MP3**: all fields, album art and lyrics can be edited.

@@ -113,9 +113,13 @@ const Store = {
     for (const t of Object.values(this.lib.tracks)) {
       byPath.set(pathKey(t.path), t.id);
 
-      const aKey = t.albumArtist
-        ? `${t.album.toLowerCase()}|${t.albumArtist.toLowerCase()}`
-        : `${t.album.toLowerCase()}|@${pathKey(t.dir)}`;
+      // An album group (custom tag, set via Edit tags or "Album group" in the song menu) keeps a song out of
+      // other albums with the same name: only songs with the same name AND the same group share an album.
+      const group = t.albumGroup ? `|#${t.albumGroup.toLowerCase()}` : '';
+      const aKey =
+        (t.albumArtist
+          ? `${t.album.toLowerCase()}|${t.albumArtist.toLowerCase()}`
+          : `${t.album.toLowerCase()}|@${pathKey(t.dir)}`) + group;
       let a = albums.get(aKey);
       if (!a) {
         a = { key: aKey, name: t.album || 'Unknown album', albumArtist: t.albumArtist, artistCounts: new Map(), year: null, cover: null, tracks: [], duration: 0 };

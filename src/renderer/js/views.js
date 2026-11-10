@@ -310,6 +310,29 @@ const Views = {
     ];
   },
 
+  // Split songs off from another album with the same name (e.g. two unrelated "Override - Single" albums).
+  albumGroupItem(ids) {
+    const tracks = ids.map((id) => Store.track(id)).filter(Boolean);
+    const mp3 = tracks.filter((t) => t.ext === 'mp3');
+    const grouped = tracks.some((t) => t.albumGroup);
+    const newGroup = () => Math.random().toString(36).slice(2, 8);
+    return {
+      label: 'Album group',
+      icon: 'album',
+      submenu: mp3.length
+        ? [
+            {
+              label: tracks.length === 1 ? 'Give this song its own album' : `Make these ${tracks.length} songs their own album`,
+              action: () => Dialogs.setAlbumGroup(ids, newGroup()),
+            },
+            { label: 'Put back in the shared album', disabled: !grouped, action: () => Dialogs.setAlbumGroup(ids, '') },
+            { sep: true },
+            { label: 'Set a specific group…', icon: 'edit', action: () => Dialogs.tagEditor(ids) },
+          ]
+        : [{ label: 'Only MP3 files can be given a group', disabled: true }],
+    };
+  },
+
   trackMenu(e, ids, ctx = {}) {
     if (!ids.length) return;
     const single = ids.length === 1;
@@ -320,6 +343,7 @@ const Views = {
       { sep: true },
       { label: allFav ? 'Remove from favorites' : 'Add to favorites', icon: allFav ? 'heart' : 'heartOutline', hint: single ? 'F' : '', action: () => Store.setFav(ids, !allFav) },
       { label: single ? 'Edit tags…' : `Edit tags of ${ids.length} songs…`, icon: 'edit', action: () => Dialogs.tagEditor(ids) },
+      this.albumGroupItem(ids),
     ];
     if (t) {
       items.push(

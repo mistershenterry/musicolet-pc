@@ -8,8 +8,29 @@ const AUDIO_EXT = new Set(['.mp3', '.flac', '.ogg', '.oga', '.opus', '.m4a', '.m
 const FOLDER_ART = ['cover', 'folder', 'front', 'albumart', 'album'];
 const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
 const IS_WIN = process.platform === 'win32';
+// Bump when parse() starts reading something new: every song is re-read once on the next scan.
 // 2: embedded covers are cached under a hash of the image (before: one file per album + folder).
-const COVER_SCHEME = 2;
+// 3: songs remember their album group (see ALBUM_GROUP_TAG).
+const LIBRARY_SCHEME = 3;
+
+// Custom tag that splits songs off into their own album even when the album name matches another album
+// (e.g. two unrelated "Override - Single" releases). Songs with the same album name and the same group value
+// form one album. Stored as ID3 TXXX:MUSICOLET_ALBUM_GROUP in MP3s; also read as a Vorbis comment (FLAC/OGG)
+// or an iTunes freeform atom (M4A) if another tagger wrote it. An empty value means "no group".
+const ALBUM_GROUP_TAG = 'MUSICOLET_ALBUM_GROUP';
+
+function readAlbumGroup(native) {
+  for (const tags of Object.values(native || {})) {
+    for (const tag of tags) {
+      const id = String(tag.id || '');
+      if (id.toUpperCase() !== ALBUM_GROUP_TAG && !id.toUpperCase().endsWith(':' + ALBUM_GROUP_TAG)) continue;
+      const value = Array.isArray(tag.value) ? tag.value[0] : tag.value;
+      const text = String(value?.text ?? value ?? '').trim();
+      if (text) return text;
+    }
+  }
+  return '';
+}
 
 let mmPromise;
 const mm = () => (mmPromise ||= import('music-metadata'));
@@ -139,8 +160,8 @@ class Library {
       const old = this.data.tracks;
       const next = {};
       this.knownCovers = new Set(fs.readdirSync(this.coverDir));
-      // Libraries from an older cover scheme re-read every song once so each gets its own correct cover.
-      const rebuildCovers = this.data.coverScheme !== COVER_SCHEME;
+      // Libraries from an older scheme re-read every song once (correct covers, album groups).
+      const rebuildCovers = (this.data.scheme ?? this.data.coverScheme) !== LIBRARY_SCHEME;
       let done = 0;
       onProgress({ done, total: files.length });
       await pool(files, 6, async (file) => {
@@ -157,7 +178,8 @@ class Library {
         if (done % 20 === 0 || done === files.length) onProgress({ done, total: files.length });
       });
       this.data.tracks = next;
-      this.data.coverScheme = COVER_SCHEME;
+      this.data.scheme = LIBRARY_SCHEME;
+      delete this.data.coverScheme;
       this.save();
       this.removeUnusedCovers();
       return this.data;
@@ -191,6 +213,7 @@ class Library {
       artists,
       album,
       albumArtist: c.albumartist || '',
+      albumGroup: readAlbumGroup(meta?.native),
       genre: (c.genre || []).join(', '),
       year: c.year || null,
       track: c.track?.no || null,
@@ -327,6 +350,8 @@ class Library {
         if ('year' in changes) tags.year = String(changes.year || '');
         if ('track' in changes) tags.trackNumber = String(changes.track || '');
         if ('disc' in changes) tags.partOfSet = String(changes.disc || '');
+        // An empty value clears the group (node-id3 can't delete a single TXXX frame; readers ignore empty ones).
+        if ('albumGroup' in changes) tags.userDefinedText = [{ description: ALBUM_GROUP_TAG, value: String(changes.albumGroup || '').trim() }];
         if ('lyrics' in changes && !hasLrc) tags.unsynchronisedLyrics = { language: 'eng', text: changes.lyrics };
         if (changes.cover?.action === 'set') {
           const buf = fs.readFileSync(changes.cover.path);

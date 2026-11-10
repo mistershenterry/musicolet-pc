@@ -4,6 +4,8 @@ const TAG_FIELDS = [
   ['artist', 'Artist'],
   ['album', 'Album'],
   ['albumArtist', 'Album artist'],
+  // Splits songs off into their own album when another album has the same name (stored as a custom tag).
+  ['albumGroup', 'Album group (optional)'],
   ['genre', 'Genre'],
   ['year', 'Year'],
   ['track', 'Track #'],
@@ -12,6 +14,25 @@ const TAG_FIELDS = [
 
 const Dialogs = {
   // ---------- tag editor ----------
+  // After tags were written: refresh the library, albums, lyrics and the now-playing panel.
+  applyTagResult(res, ids) {
+    for (const w of res.warnings || []) toast(w, 5000);
+    for (const t of res.updated) Store.lib.tracks[t.id] = t;
+    Store.rebuild();
+    Store.emit('library');
+    Lyrics.invalidate(ids);
+    Player.emit('meta');
+  },
+
+  // Song menu → Album group: give the selected songs their own album, or put them back in the shared one.
+  async setAlbumGroup(ids, group) {
+    const res = await api.writeTags(ids, { albumGroup: group });
+    if (res.error) return toast("Couldn't change the album group: " + res.error, 5000);
+    this.applyTagResult(res, ids);
+    const name = Store.track(ids[0])?.album || 'this album';
+    toast(group ? `${plural(res.updated.length, 'song')} now form a separate "${name}" album` : `Back in the shared "${name}" album`);
+  },
+
   async tagEditor(ids, { focusLyrics = false } = {}) {
     if (!ids.length) return;
     const single = ids.length === 1;
@@ -32,8 +53,9 @@ const Dialogs = {
         class: 'input',
         type: key === 'year' || key === 'track' || key === 'disc' ? 'number' : 'text',
         value: same ? [...values][0] : '',
-        placeholder: same ? '' : 'Multiple values (unchanged)',
+        placeholder: !same ? 'Multiple values (unchanged)' : key === 'albumGroup' ? 'Any code, e.g. v2. Different code = separate album' : '',
         disabled: !anyMp3,
+        title: key === 'albumGroup' ? 'Songs with the same album name are only grouped together if they also have the same album group. Leave empty for normal grouping.' : null,
       });
       input.addEventListener('input', () => dirty.add(key));
       inputs[key] = input;
@@ -139,12 +161,7 @@ const Dialogs = {
         await Modal.confirm('Could not save tags', res.error, { okLabel: 'OK' });
         return false;
       }
-      for (const w of res.warnings) toast(w, 5000);
-      for (const t of res.updated) Store.lib.tracks[t.id] = t;
-      Store.rebuild();
-      Store.emit('library');
-      Lyrics.invalidate(ids);
-      Player.emit('meta');
+      this.applyTagResult(res, ids);
       toast(single ? 'Tags saved' : `Saved tags for ${plural(res.updated.length, 'song')}`);
       return true;
     };
