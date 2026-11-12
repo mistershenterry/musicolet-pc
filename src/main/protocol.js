@@ -114,7 +114,7 @@ async function serveVault(file, info, vault, request) {
   return new Response(vault.stream(file, info.iv, start, end), { status: m ? 206 : 200, headers });
 }
 
-function handleProtocol({ rendererDir, coverDir, isAllowedMedia, vaultInfo, vault }) {
+function handleProtocol({ rendererDir, coverDir, isAllowedMedia, vaultInfo, vault, songCover }) {
   protocol.handle('mco', (request) => {
     const url = new URL(request.url);
     const pathname = decodeURIComponent(url.pathname);
@@ -130,6 +130,10 @@ function handleProtocol({ rendererDir, coverDir, isAllowedMedia, vaultInfo, vaul
       const info = vaultInfo?.(file);
       if (info) return serveVault(file, info, vault, request);
       return serveFile(file, request);
+    }
+    if (url.host === 'libcover' && songCover) {
+      // Song Library covers: fetched from the private songs repository with the token, cached on disk.
+      return songCover(pathname.replace(/^\/+/, '')).then((file) => (file ? serveFile(file, request) : new Response('Not found', { status: 404 })));
     }
     if (url.host === 'cover') {
       return serveFile(path.join(coverDir, path.basename(pathname)), request);

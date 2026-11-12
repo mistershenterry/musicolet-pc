@@ -1744,3 +1744,13 @@ kbd {
   display: grid;
   place-items: center;
 }
+.token-row {
+  margin: 4px 0 10px;
+}
+.token-input {
+  flex: 1;
+  font-family: 'Cascadia Mono', Consolas, monospace;
+}
+.error-text {
+  color: var(--danger) !important;
+}

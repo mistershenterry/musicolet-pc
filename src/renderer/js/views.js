@@ -991,8 +991,14 @@ const Views = {
       return r;
     };
 
+    let needsToken = false;
     const draw = () => {
       listEl.innerHTML = '';
+      if (needsToken) {
+        // The songs repository is private: the app needs a GitHub token from Settings → Song Library.
+        listEl.append(message('Connect to the Song Library', error || 'The Song Library is private. Add your GitHub access token in Settings → Song Library to browse and download songs.', textBtn('Open Settings', () => Dialogs.settings({ scrollTo: 'Song Library' }), { iconName: 'settings', primary: true })));
+        return;
+      }
       if (error && !songs?.length) {
         listEl.append(message("Couldn't load the Song Library", `Check your internet connection and try again. (${error})`, textBtn('Try again', () => load(true), { iconName: 'refresh' })));
         return;
@@ -1031,6 +1037,7 @@ const Views = {
       const res = await api.songCatalog(force);
       songs = res.songs;
       error = res.error || null;
+      needsToken = !!res.needsToken;
       fillFilters();
       draw();
     };

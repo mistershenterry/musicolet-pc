@@ -148,6 +148,15 @@ function registerIpc() {
   });
   ipcMain.handle('downloads:enqueue', (_e, id) => downloads.enqueue(id));
   ipcMain.handle('downloads:state', () => downloads.state());
+  ipcMain.handle('songlib:status', () => downloads.status());
+  ipcMain.handle('songlib:setToken', async (_e, token) => {
+    try {
+      return await downloads.setToken(token);
+    } catch (err) {
+      return { ok: false, error: `Couldn't reach GitHub (${String(err?.message || err)}). Check your internet connection.` };
+    }
+  });
+  ipcMain.handle('songlib:clearToken', () => downloads.clearToken());
 
   ipcMain.handle('shell:showInFolder', (_e, file) => shell.showItemInFolder(file));
 
@@ -233,7 +242,7 @@ if (!gotLock) {
   app.whenReady().then(() => {
     library = new Library(app.getPath('userData'));
     // Songs downloaded from the Song Library are stored encrypted in the library's vault (see vault.js).
-    downloads = new Downloads(library, (channel, payload) => {
+    downloads = new Downloads(library, app.getPath('userData'), (channel, payload) => {
       if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
     });
     discord.covers = new CoverLookup(userFile('discord-covers.json'));
@@ -245,6 +254,7 @@ if (!gotLock) {
       isAllowedMedia: (file) => library.isAllowedMedia(file),
       vaultInfo: (file) => library.vaultInfo(file),
       vault: library.vault,
+      songCover: (rel) => downloads.cover(rel),
     });
     registerIpc();
     createWindow();

@@ -160,6 +160,19 @@ Musicolet PC looks for lyrics in this order:
 
 Lines with timestamps like `[01:23.45]` are shown as synced lyrics.
 
+### Song Library
+
+The **Song Library** tab lets you search for songs, filter them by artist or album, and download them with one click.
+While songs download, a **Downloads** item above Settings shows their progress. Downloaded songs can be played and
+deleted, but not edited, and they're stored encrypted so they only play in Musicolet PC.
+
+The songs come from a private repository, so the Song Library needs access:
+
+1. Ask the repository owner to add you to `mistershenterry/musicolet-pc-songs`.
+2. Create a fine-grained token at <https://github.com/settings/personal-access-tokens/new>: **Repository access →
+   Only select repositories → musicolet-pc-songs**, and **Permissions → Contents → Read-only**.
+3. Paste it in **Settings → Song Library** and click **Connect**. The token is stored encrypted by Windows.
+
 ### Discord status
 
 Turn it on in **Settings → Discord → Show what I'm listening to on Discord**. Your Discord status then shows

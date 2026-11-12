@@ -354,7 +354,8 @@ const Dialogs = {
   },
 
   // ---------- settings ----------
-  settings() {
+  // scrollTo: title of a section to show first (e.g. 'Song Library').
+  settings({ scrollTo } = {}) {
     const s = Store.state.settings;
     const section = (title, ...children) => h('section', { class: 'settings-section' }, h('h3', { text: title }), ...children);
     const selectRow = (label, value, options, onChange, hint) => {
@@ -414,7 +415,7 @@ const Dialogs = {
       ['Ctrl + A', 'Select all in list'],
       ['Delete', 'Remove selection from queue / playlist'],
       ['Ctrl + Enter', 'Stamp line (lyrics editor)'],
-      ['1 – 7', 'Switch tabs'],
+      ['1 – 8', 'Switch tabs'],
     ];
 
     const body = h('div', { class: 'settings' },
@@ -452,11 +453,23 @@ const Dialogs = {
         ),
       ),
       this.discordSection(section),
+      this.songLibrarySection(section),
       section('Keyboard shortcuts', h('div', { class: 'shortcuts' }, ...shortcuts.flatMap(([k, d]) => [h('kbd', { text: k }), h('span', { text: d })]))),
       this.updatesSection(section),
       section('About', h('p', { class: 'muted small', text: 'Musicolet PC — an unofficial desktop music player inspired by Musicolet for Android. No ads, no accounts. It only goes online to check for updates and, if you turn it on, for the Discord status.' })),
     );
-    Modal.open({ title: 'Settings', body, wide: true, buttons: [{ label: 'Done', primary: true }] });
+    Modal.open({
+      title: 'Settings',
+      body,
+      wide: true,
+      buttons: [{ label: 'Done', primary: true }],
+      // A new Song Library token takes effect right away in the Song Library tab.
+      onClose: () => Views.top()?.type === 'library' && Views.render(),
+    });
+    if (scrollTo) {
+      const target = [...body.querySelectorAll('.settings-section h3')].find((e) => e.textContent === scrollTo);
+      setTimeout(() => target?.scrollIntoView({ block: 'start' }));
+    }
   },
 
   // Plans for the next update, from BULLETIN.md in the GitHub repo (refreshes by itself while open).
@@ -515,6 +528,41 @@ const Dialogs = {
       btn.disabled = ['unsupported', 'checking', 'downloading', 'installing'].includes(s.state);
     });
     return section('Updates', h('div', { class: 'settings-row' }, h('div', {}, title, status), btn));
+  },
+
+  // Access to the private songs repository: a GitHub personal access token, stored encrypted by Windows.
+  songLibrarySection(section) {
+    const status = h('div', { class: 'muted small' });
+    const input = h('input', { class: 'input token-input', type: 'password', placeholder: 'github_pat_…', spellcheck: 'false', autocomplete: 'off' });
+    const save = textBtn('Connect', async () => {
+      save.disabled = true;
+      status.textContent = 'Checking the token…';
+      const res = await api.setSongLibraryToken(input.value);
+      save.disabled = false;
+      if (!res.ok) {
+        status.textContent = res.error;
+        status.classList.add('error-text');
+        return;
+      }
+      input.value = '';
+      toast('Connected to the Song Library');
+      show(res);
+    }, { iconName: 'check', primary: true });
+    const remove = textBtn('Disconnect', async () => show(await api.clearSongLibraryToken()), { iconName: 'close' });
+    const form = h('div', { class: 'row gap center token-row' }, input, save);
+    const show = (s) => {
+      status.classList.remove('error-text');
+      status.textContent = s.connected ? `Connected: songs come from ${s.repo}.` : 'Not connected. The Song Library needs a GitHub token with read access to the songs repository.';
+      form.hidden = s.connected;
+      remove.hidden = !s.connected;
+    };
+    input.addEventListener('keydown', (e) => e.key === 'Enter' && save.click());
+    api.songLibraryStatus().then(show);
+    return section('Song Library',
+      h('div', { class: 'settings-row' }, h('div', {}, h('div', { text: 'Access' }), status), remove),
+      form,
+      h('div', { class: 'muted small', html: 'Create a fine-grained token at <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">github.com/settings/personal-access-tokens</a>: Repository access → <b>Only select repositories</b> → <code>musicolet-pc-songs</code>, and Permissions → Contents → <b>Read-only</b>. You need access to that repository first (ask its owner to add you).' }),
+    );
   },
 
   discordSection(section) {
