@@ -99,6 +99,7 @@ const Store = {
       const p = r.replace(/[\\/]+$/, '');
       return { path: p, key: pathKey(p) };
     });
+    const downloadsKey = this.lib.downloadsDir ? pathKey(this.lib.downloadsDir.replace(/[\\/]+$/, '')) + (IS_WIN ? '\\' : '/') : null;
 
     const folderNode = (p) => {
       const key = pathKey(p);
@@ -113,9 +114,13 @@ const Store = {
     for (const t of Object.values(this.lib.tracks)) {
       byPath.set(pathKey(t.path), t.id);
 
-      const aKey = t.albumArtist
-        ? `${t.album.toLowerCase()}|${t.albumArtist.toLowerCase()}`
-        : `${t.album.toLowerCase()}|@${pathKey(t.dir)}`;
+      // An album group (custom tag, set via Edit tags or "Album group" in the song menu) keeps a song out of
+      // other albums with the same name: only songs with the same name AND the same group share an album.
+      const group = t.albumGroup ? `|#${t.albumGroup.toLowerCase()}` : '';
+      const aKey =
+        (t.albumArtist
+          ? `${t.album.toLowerCase()}|${t.albumArtist.toLowerCase()}`
+          : `${t.album.toLowerCase()}|@${pathKey(t.dir)}`) + group;
       let a = albums.get(aKey);
       if (!a) {
         a = { key: aKey, name: t.album || 'Unknown album', albumArtist: t.albumArtist, artistCounts: new Map(), year: null, cover: null, tracks: [], duration: 0 };
@@ -145,6 +150,10 @@ const Store = {
         if (!ge) genres.set(key, (ge = { key, name: g, tracks: [] }));
         ge.tracks.push(t.id);
       }
+
+      // Songs from the Song Library: play/delete only, and they don't appear in the Folders tab.
+      t.downloaded = !!downloadsKey && pathKey(t.path).startsWith(downloadsKey);
+      if (t.downloaded) continue;
 
       // Folder tree: attach the track to its folder and bubble counts up to the library root.
       const node = folderNode(t.dir);

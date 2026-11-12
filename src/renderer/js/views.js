@@ -7,6 +7,7 @@ const TABS = [
   { id: 'genres', label: 'Genres', icon: 'genre' },
   { id: 'songs', label: 'Songs', icon: 'song' },
   { id: 'playlists', label: 'Playlists', icon: 'playlist' },
+  { id: 'library', label: 'Song Library', icon: 'libraryMusic' },
 ];
 
 const AUTO_PLAYLISTS = [
@@ -85,11 +86,17 @@ const Views = {
     this.list?.destroy();
     this.list = null;
     this.indexMap = null;
+    // Views can register cleanups (e.g. stop listening for download progress) that run when they're left.
+    for (const fn of this.cleanups || []) fn();
+    this.cleanups = [];
     content.innerHTML = '';
     const v = this.top();
     $$('#nav .nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === this.stack[0].type));
+    $('#btn-downloads').classList.toggle('active', this.stack[0].type === 'downloads');
 
-    if (!Store.lib.roots.length) return content.append(this.welcome());
+    // The Song Library and Downloads work without any music folder (downloads are stored by the app).
+    const online = v.type === 'library' || v.type === 'downloads';
+    if (!online && !Store.lib.roots.length && !Store.trackCount()) return content.append(this.welcome());
     if (!Store.trackCount() && App.scanning) {
       return content.append(h('div', { class: 'empty-state' }, h('div', { class: 'spinner' }), h('h2', { text: 'Scanning your music…' })));
     }
@@ -310,24 +317,54 @@ const Views = {
     ];
   },
 
+  // Split songs off from another album with the same name (e.g. two unrelated "Override - Single" albums).
+  albumGroupItem(ids) {
+    const tracks = ids.map((id) => Store.track(id)).filter(Boolean);
+    const mp3 = tracks.filter((t) => t.ext === 'mp3');
+    const grouped = tracks.some((t) => t.albumGroup);
+    const newGroup = () => Math.random().toString(36).slice(2, 8);
+    return {
+      label: 'Album group',
+      icon: 'album',
+      submenu: mp3.length
+        ? [
+            {
+              label: tracks.length === 1 ? 'Give this song its own album' : `Make these ${tracks.length} songs their own album`,
+              action: () => Dialogs.setAlbumGroup(ids, newGroup()),
+            },
+            { label: 'Put back in the shared album', disabled: !grouped, action: () => Dialogs.setAlbumGroup(ids, '') },
+            { sep: true },
+            { label: 'Set a specific group…', icon: 'edit', action: () => Dialogs.tagEditor(ids) },
+          ]
+        : [{ label: 'Only MP3 files can be given a group', disabled: true }],
+    };
+  },
+
   trackMenu(e, ids, ctx = {}) {
     if (!ids.length) return;
     const single = ids.length === 1;
     const t = single ? Store.track(ids[0]) : null;
     const allFav = ids.every((id) => Store.isFav(id));
+    // Songs downloaded from the Song Library: no tag editing, no folder/Explorer (they live in the app's own folder).
+    const anyDownloaded = ids.some((id) => Store.track(id)?.downloaded);
     const items = [
       ...this.collectionItems(ids).filter((it) => single ? it.label !== 'Shuffle' : true),
       { sep: true },
       { label: allFav ? 'Remove from favorites' : 'Add to favorites', icon: allFav ? 'heart' : 'heartOutline', hint: single ? 'F' : '', action: () => Store.setFav(ids, !allFav) },
-      { label: single ? 'Edit tags…' : `Edit tags of ${ids.length} songs…`, icon: 'edit', action: () => Dialogs.tagEditor(ids) },
+      anyDownloaded ? null : { label: single ? 'Edit tags…' : `Edit tags of ${ids.length} songs…`, icon: 'edit', action: () => Dialogs.tagEditor(ids) },
+      this.albumGroupItem(ids),
     ];
     if (t) {
       items.push(
         { label: 'Go to album', icon: 'album', action: () => this.openAlbum(Store.idx.albumOf.get(t.id)) },
         { label: 'Go to artist', icon: 'artist', action: () => this.openArtist((t.artists?.[0] || t.artist || 'Unknown artist').toLowerCase()) },
-        { label: 'Go to folder', icon: 'folder', action: () => this.openFolder(pathKey(t.dir)) },
-        { label: 'Show in Explorer', icon: 'folder', action: () => api.showInFolder(t.path) },
       );
+      if (!t.downloaded) {
+        items.push(
+          { label: 'Go to folder', icon: 'folder', action: () => this.openFolder(pathKey(t.dir)) },
+          { label: 'Show in Explorer', icon: 'folder', action: () => api.showInFolder(t.path) },
+        );
+      }
     }
     if (ctx.type === 'queue') {
       items.push({ sep: true }, { label: 'Remove from queue', icon: 'close', hint: 'Del', action: () => this.removeFrom(ctx, ctx.indices) });
@@ -895,6 +932,168 @@ const Views = {
       h('div', { class: 'view-body' }, listEl),
     );
     draw();
+  },
+
+  // ---------- Song Library (download songs) ----------
+  render_library(v, content) {
+    const listEl = h('div', { class: 'song-library scroll' });
+    const artistSel = h('select', { class: 'input lib-filter', title: 'Filter by artist' });
+    const albumSel = h('select', { class: 'input lib-filter', title: 'Filter by album' });
+    let songs = null;
+    let error = null;
+    v.filters ||= { artist: '', album: '' };
+
+    const fill = (sel, label, values, current) => {
+      sel.innerHTML = '';
+      sel.append(h('option', { value: '', text: label }), ...values.map((x) => h('option', { value: x, text: x })));
+      sel.value = values.includes(current) ? current : '';
+    };
+    const fillFilters = () => {
+      const artists = [...new Set(songs.map((s) => s.artist).filter(Boolean))].sort(cmp);
+      fill(artistSel, 'All artists', artists, v.filters.artist);
+      v.filters.artist = artistSel.value;
+      // Only the albums of the chosen artist.
+      const albums = [...new Set(songs.filter((s) => !v.filters.artist || s.artist === v.filters.artist).map((s) => s.album).filter(Boolean))].sort(cmp);
+      fill(albumSel, 'All albums', albums, v.filters.album);
+      v.filters.album = albumSel.value;
+    };
+    artistSel.addEventListener('change', () => {
+      v.filters.artist = artistSel.value;
+      v.filters.album = '';
+      fillFilters();
+      draw();
+    });
+    albumSel.addEventListener('change', () => {
+      v.filters.album = albumSel.value;
+      draw();
+    });
+
+    const message = (title, text, extra) => h('div', { class: 'lib-message' }, h('div', { class: 'lib-message-icon', html: icon('libraryMusic', 40) }), h('h3', { text: title }), h('p', { class: 'muted', text }), extra || null);
+
+    const row = (s) => {
+      const state = s.downloaded ? 'downloaded' : SongDownloads.queue.some((q) => q.id === s.id) ? 'queued' : 'ready';
+      const r = h('div', { class: 'lib-row ' + state, tabindex: '0', title: state === 'ready' ? 'Click to download' : '' },
+        s.coverUrl ? h('img', { class: 'lib-cover', loading: 'lazy', src: s.coverUrl, alt: '' }) : h('div', { class: 'lib-cover art-placeholder' }),
+        h('div', { class: 'lib-main' },
+          h('div', { class: 'ellipsis lib-title', text: s.title }),
+          h('div', { class: 'muted small ellipsis', text: [s.artist || 'Unknown artist', s.album].filter(Boolean).join(' · ') }),
+        ),
+        h('span', { class: 'muted small lib-len', text: s.duration ? fmtTime(s.duration) : '' }),
+        h('span', { class: 'lib-state', html: state === 'downloaded' ? icon('check', 18) + '<span>Downloaded</span>' : state === 'queued' ? '<span>In queue…</span>' : icon('cloudDownload', 18) + '<span>Download</span>' }),
+      );
+      const start = async () => {
+        if (state !== 'ready') return;
+        const res = await SongDownloads.download(s);
+        if (res.ok) draw();
+      };
+      r.addEventListener('click', start);
+      r.addEventListener('keydown', (e) => e.key === 'Enter' && start());
+      return r;
+    };
+
+    const draw = () => {
+      listEl.innerHTML = '';
+      if (error && !songs?.length) {
+        listEl.append(message("Couldn't load the Song Library", `Check your internet connection and try again. (${error})`, textBtn('Try again', () => load(true), { iconName: 'refresh' })));
+        return;
+      }
+      if (!songs) {
+        listEl.append(h('div', { class: 'empty-state' }, h('div', { class: 'spinner' })));
+        return;
+      }
+      if (!songs.length) {
+        listEl.append(message('The Song Library is empty', 'No songs have been added yet. Check back later!'));
+        return;
+      }
+      const words = this.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const shown = songs.filter((s) => {
+        if (v.filters.artist && s.artist !== v.filters.artist) return false;
+        if (v.filters.album && s.album !== v.filters.album) return false;
+        const hay = `${s.title} ${s.artist} ${s.album}`.toLowerCase();
+        return words.every((w) => hay.includes(w));
+      });
+      if (!shown.length) {
+        const what = [this.query.trim() && `"${this.query.trim()}"`, v.filters.artist && `by ${v.filters.artist}`, v.filters.album && `on ${v.filters.album}`].filter(Boolean).join(' ');
+        listEl.append(message("Couldn't find that song", `There's nothing ${what || 'like that'} in the Song Library. Check the spelling, or try another artist or album.`));
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      for (const s of shown) frag.append(row(s));
+      listEl.append(frag);
+    };
+
+    const load = async (force) => {
+      if (force) {
+        songs = null;
+        error = null;
+        draw();
+      }
+      const res = await api.songCatalog(force);
+      songs = res.songs;
+      error = res.error || null;
+      fillFilters();
+      draw();
+    };
+
+    content.append(
+      this.header({
+        title: 'Song Library',
+        subtitle: 'Search for a song and click it to download',
+        onSearch: draw,
+        actions: [artistSel, albumSel, iconBtn('refresh', 'Refresh the Song Library', () => load(true))],
+      }),
+      h('div', { class: 'view-body' }, listEl),
+    );
+    // Rows update when a download starts or finishes.
+    this.cleanups.push(SongDownloads.subscribe(() => songs && api.songCatalog(false).then((res) => {
+      songs = res.songs;
+      draw();
+    })));
+    draw();
+    load(false);
+    setTimeout(() => $('#content .search')?.focus({ preventScroll: true }));
+  },
+
+  // ---------- Downloads (songs being downloaded) ----------
+  render_downloads(v, content) {
+    const listEl = h('div', { class: 'download-list scroll' });
+    const rows = new Map();
+    const pct = (q) => (q.size ? Math.min(100, Math.round((q.received / q.size) * 100)) : 0);
+    const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
+    const draw = (queue) => {
+      if (!queue.length) {
+        rows.clear();
+        listEl.innerHTML = '';
+        listEl.append(h('div', { class: 'lib-message' }, h('div', { class: 'lib-message-icon', html: icon('check', 40) }), h('h3', { text: 'All downloads finished' }), h('p', { class: 'muted', text: 'Downloaded songs are in your library. Find more in the Song Library.' }), textBtn('Open the Song Library', () => this.go('library'), { iconName: 'libraryMusic' })));
+        return;
+      }
+      if (!rows.size) listEl.innerHTML = '';
+      for (const [id, r] of rows) if (!queue.some((q) => q.id === id)) (r.remove(), rows.delete(id));
+      for (const q of queue) {
+        let r = rows.get(q.id);
+        if (!r) {
+          r = h('div', { class: 'dl-row' },
+            q.coverUrl ? h('img', { class: 'lib-cover', src: q.coverUrl, alt: '' }) : h('div', { class: 'lib-cover art-placeholder' }),
+            h('div', { class: 'lib-main' },
+              h('div', { class: 'ellipsis lib-title', text: q.title }),
+              h('div', { class: 'muted small ellipsis', text: q.artist || 'Unknown artist' }),
+              h('div', { class: 'dl-bar' }, h('div')),
+            ),
+            h('span', { class: 'muted small dl-status' }),
+          );
+          rows.set(q.id, r);
+          listEl.append(r);
+        }
+        r.querySelector('.dl-bar > div').style.width = pct(q) + '%';
+        r.querySelector('.dl-status').textContent = q.status === 'queued' ? 'Waiting…' : q.size ? `${pct(q)}% · ${mb(q.received)} of ${mb(q.size)}` : 'Downloading…';
+      }
+    };
+    content.append(
+      this.header({ title: 'Downloads', subtitle: 'Songs disappear from this list once they finish downloading', search: false }),
+      h('div', { class: 'view-body' }, listEl),
+    );
+    this.cleanups.push(SongDownloads.subscribe(draw));
+    draw(SongDownloads.queue);
   },
 
   render_playlist(v, content) {

@@ -10,12 +10,19 @@ const CHECK_INTERVAL = 4 * 60 * 60 * 1000;
 
 const isPortable = () => !!process.env.PORTABLE_EXECUTABLE_FILE;
 
-// "1.2.10" > "1.2.9"
+// "1.2.10" > "1.2.9", and a release is newer than a preview of it: "1.0.8" > "1.0.8-next.2" > "1.0.8-next.1"
 function newer(a, b) {
-  const pa = String(a).replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
-  const pb = String(b).replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
-  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
-  return false;
+  const parse = (v) => {
+    const [main, pre = ''] = String(v).replace(/^v/, '').split('-');
+    return { nums: main.split('.').map((n) => parseInt(n, 10) || 0), pre };
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  for (let i = 0; i < 3; i++) if ((pa.nums[i] || 0) !== (pb.nums[i] || 0)) return (pa.nums[i] || 0) > (pb.nums[i] || 0);
+  if (!pa.pre || !pb.pre) return !pa.pre && !!pb.pre;
+  const na = parseInt(pa.pre.split('.').pop(), 10) || 0;
+  const nb = parseInt(pb.pre.split('.').pop(), 10) || 0;
+  return na > nb;
 }
 
 // GitHub gives release notes as HTML; the renderer shows plain text.
@@ -72,6 +79,9 @@ class Updater {
 
   initAuto() {
     const { autoUpdater } = require('electron-updater');
+    // Preview builds from the `next` branch (e.g. 1.0.8-next.1) would otherwise switch electron-updater to a
+    // "next" pre-release channel that skips normal releases, so they'd never be offered the real 1.0.8.
+    autoUpdater.allowPrerelease = false;
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.logger = null;

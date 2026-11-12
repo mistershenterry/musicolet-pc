@@ -1627,3 +1627,120 @@ kbd {
   border-top: 1px solid var(--border);
   margin: 10px 0;
 }
+
+/* ---------- Song Library & Downloads ---------- */
+.nav-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #111;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
+}
+.lib-filter {
+  height: 34px;
+  border-radius: 17px;
+  max-width: 170px;
+}
+.song-library,
+.download-list {
+  padding: 8px;
+}
+.lib-row,
+.dl-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  outline: none;
+}
+.lib-row.ready {
+  cursor: pointer;
+}
+.lib-row.ready:hover,
+.lib-row.ready:focus {
+  background: var(--bg-hover);
+}
+.lib-row.ready:hover .lib-state {
+  color: var(--accent-text);
+}
+.lib-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.lib-main {
+  flex: 1;
+  min-width: 0;
+}
+.lib-title {
+  font-weight: 600;
+}
+.lib-len {
+  font-variant-numeric: tabular-nums;
+}
+.lib-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 120px;
+  justify-content: flex-end;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.lib-row.downloaded .lib-state {
+  color: var(--accent-text);
+}
+.lib-row.queued .lib-state {
+  color: var(--text-3);
+}
+.lib-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 60px 20px;
+  gap: 4px;
+}
+.lib-message h3 {
+  margin: 8px 0 0;
+}
+.lib-message p {
+  max-width: 420px;
+  margin: 4px 0 12px;
+}
+.lib-message-icon {
+  color: var(--accent-text);
+  opacity: 0.8;
+}
+.dl-bar {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--bg-active);
+  margin-top: 6px;
+  overflow: hidden;
+}
+.dl-bar > div {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.25s;
+}
+.dl-status {
+  width: 170px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tl-dl {
+  color: var(--text-3);
+  display: grid;
+  place-items: center;
+}

@@ -99,6 +99,7 @@ class TrackList {
         <div class="tl-title">${escapeHtml(t.title)}</div>
         <div class="tl-sub">${escapeHtml(sub)}</div>
       </div>
+      ${t.downloaded ? `<div class="tl-dl" title="Downloaded from the Song Library: play or delete only">${icon('lock', 14)}</div>` : ''}
       ${Store.isFav(id) ? `<div class="tl-fav">${icon('heart', 16)}</div>` : ''}
       <div class="tl-dur">${t.duration ? fmtTime(t.duration) : ''}</div>
       <button class="tl-more icon-btn" tabindex="-1" title="More">${icon('more', 18)}</button>`;

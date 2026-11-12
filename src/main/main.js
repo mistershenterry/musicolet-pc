@@ -12,6 +12,8 @@ const discord = new DiscordPresence();
 const updater = new Updater();
 const { Bulletin } = require('./bulletin');
 let bulletin = null;
+const { Downloads } = require('./downloads');
+let downloads = null;
 
 registerSchemes();
 
@@ -137,6 +139,16 @@ function registerIpc() {
   ipcMain.handle('bulletin:get', () => bulletin.state);
   ipcMain.handle('bulletin:check', () => bulletin.check());
 
+  ipcMain.handle('downloads:catalog', async (_e, force) => {
+    try {
+      return await downloads.catalog(force);
+    } catch (err) {
+      return { songs: [], error: String(err?.message || err) };
+    }
+  });
+  ipcMain.handle('downloads:enqueue', (_e, id) => downloads.enqueue(id));
+  ipcMain.handle('downloads:state', () => downloads.state());
+
   ipcMain.handle('shell:showInFolder', (_e, file) => shell.showItemInFolder(file));
 
   ipcMain.handle('dialog:pickImage', async () => {
@@ -220,6 +232,10 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     library = new Library(app.getPath('userData'));
+    // Songs downloaded from the Song Library are stored encrypted in the library's vault (see vault.js).
+    downloads = new Downloads(library, (channel, payload) => {
+      if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+    });
     discord.covers = new CoverLookup(userFile('discord-covers.json'));
     discord.uploader = new CoverUploader(library.coverDir, userFile('discord-uploads.json'));
     bulletin = new Bulletin(userFile('bulletin.json'));
@@ -227,6 +243,8 @@ if (!gotLock) {
       rendererDir: RENDERER_DIR,
       coverDir: library.coverDir,
       isAllowedMedia: (file) => library.isAllowedMedia(file),
+      vaultInfo: (file) => library.vaultInfo(file),
+      vault: library.vault,
     });
     registerIpc();
     createWindow();

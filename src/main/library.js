@@ -3,13 +3,35 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const NodeID3 = require('node-id3');
+const { Vault } = require('./vault');
 
 const AUDIO_EXT = new Set(['.mp3', '.flac', '.ogg', '.oga', '.opus', '.m4a', '.m4b', '.aac', '.wav', '.webm', '.weba']);
 const FOLDER_ART = ['cover', 'folder', 'front', 'albumart', 'album'];
 const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
 const IS_WIN = process.platform === 'win32';
+// Bump when parse() starts reading something new: every song is re-read once on the next scan.
 // 2: embedded covers are cached under a hash of the image (before: one file per album + folder).
-const COVER_SCHEME = 2;
+// 3: songs remember their album group (see ALBUM_GROUP_TAG).
+const LIBRARY_SCHEME = 3;
+
+// Custom tag that splits songs off into their own album even when the album name matches another album
+// (e.g. two unrelated "Override - Single" releases). Songs with the same album name and the same group value
+// form one album. Stored as ID3 TXXX:MUSICOLET_ALBUM_GROUP in MP3s; also read as a Vorbis comment (FLAC/OGG)
+// or an iTunes freeform atom (M4A) if another tagger wrote it. An empty value means "no group".
+const ALBUM_GROUP_TAG = 'MUSICOLET_ALBUM_GROUP';
+
+function readAlbumGroup(native) {
+  for (const tags of Object.values(native || {})) {
+    for (const tag of tags) {
+      const id = String(tag.id || '');
+      if (id.toUpperCase() !== ALBUM_GROUP_TAG && !id.toUpperCase().endsWith(':' + ALBUM_GROUP_TAG)) continue;
+      const value = Array.isArray(tag.value) ? tag.value[0] : tag.value;
+      const text = String(value?.text ?? value ?? '').trim();
+      if (text) return text;
+    }
+  }
+  return '';
+}
 
 let mmPromise;
 const mm = () => (mmPromise ||= import('music-metadata'));
@@ -74,23 +96,94 @@ class Library {
     fs.mkdirSync(this.coverDir, { recursive: true });
     this.data = readJson(this.file, null) || { roots: [], tracks: {} };
     this.scanning = null;
+    // Encrypted store for Song Library downloads (see vault.js).
+    this.vault = new Vault(userDir, this.data.vault, (state) => {
+      this.data.vault = state;
+      this.save();
+    });
   }
 
+  // The renderer also gets downloadsDir, to tell downloaded songs (play/delete only) from your own files.
   get() {
-    return this.data;
+    return { ...this.data, vault: undefined, downloadsDir: this.data.vault?.dir ? this.vault.dir : null };
   }
 
   save() {
     writeJsonAtomic(this.file, this.data);
   }
 
+  isDownloaded(file) {
+    return this.vault.contains(file);
+  }
+
   isAllowedMedia(file) {
+    if (this.vault.contains(file)) return true;
     const n = norm(file);
     return this.data.roots.some((r) => {
       const root = norm(r);
       const prefix = root.endsWith(path.sep) ? root : root + path.sep;
       return n.startsWith(prefix);
     });
+  }
+
+  // How to play a downloaded (encrypted) song: { iv, ext } or null for normal files.
+  vaultInfo(file) {
+    if (!this.vault.contains(file)) return null;
+    const t = this.data.tracks[trackId(file)];
+    return t?.iv ? { iv: t.iv, ext: t.ext } : null;
+  }
+
+  // A song downloaded from the Song Library: read its tags from memory, then store it encrypted in the vault.
+  // `song` is the catalog entry (its title/artist/album are used when the file has no tags).
+  async addDownloaded(song, plain) {
+    const { parseBuffer } = await mm();
+    const ext = path.extname(song.file).slice(1).toLowerCase();
+    let meta = null;
+    try {
+      meta = await parseBuffer(plain, { path: song.file, size: plain.length }, { duration: true });
+    } catch {
+      meta = null;
+    }
+    const c = meta?.common || {};
+    const { file, iv } = this.vault.store(plain);
+    const st = fs.statSync(file);
+    const artists = c.artists?.length ? c.artists : c.artist ? [c.artist] : song.artist ? [song.artist] : [];
+    const t = {
+      id: trackId(file),
+      path: file,
+      dir: path.dirname(file),
+      ext,
+      iv,
+      catalogId: song.id,
+      title: c.title || song.title,
+      artist: c.artist || artists.join(', '),
+      artists,
+      album: c.album || song.album || '',
+      albumArtist: c.albumartist || '',
+      albumGroup: '',
+      genre: (c.genre || []).join(', '),
+      year: c.year || null,
+      track: c.track?.no || null,
+      disc: c.disk?.no || null,
+      duration: meta?.format?.duration || song.duration || 0,
+      bitrate: meta?.format?.bitrate ? Math.round(meta.format.bitrate / 1000) : null,
+      sampleRate: meta?.format?.sampleRate || null,
+      codec: meta?.format?.codec || meta?.format?.container || '',
+      mtime: st.mtimeMs,
+      size: st.size,
+      addedAt: Date.now(),
+      cover: null,
+    };
+    this.knownCovers = new Set(fs.readdirSync(this.coverDir));
+    t.cover = await this.coverFor(t, c.picture?.[0], false);
+    this.data.tracks[t.id] = t;
+    this.save();
+    return this.get();
+  }
+
+  // Catalog ids of songs already downloaded (so the Song Library can mark them).
+  downloadedIds() {
+    return new Set(Object.values(this.data.tracks).filter((t) => t.catalogId).map((t) => t.catalogId));
   }
 
   addRoots(dirs) {
@@ -111,7 +204,7 @@ class Library {
       if (!this.isAllowedMedia(t.path)) delete this.data.tracks[id];
     }
     this.save();
-    return this.data;
+    return this.get();
   }
 
   async walk(dir, out) {
@@ -139,8 +232,8 @@ class Library {
       const old = this.data.tracks;
       const next = {};
       this.knownCovers = new Set(fs.readdirSync(this.coverDir));
-      // Libraries from an older cover scheme re-read every song once so each gets its own correct cover.
-      const rebuildCovers = this.data.coverScheme !== COVER_SCHEME;
+      // Libraries from an older scheme re-read every song once (correct covers, album groups).
+      const rebuildCovers = (this.data.scheme ?? this.data.coverScheme) !== LIBRARY_SCHEME;
       let done = 0;
       onProgress({ done, total: files.length });
       await pool(files, 6, async (file) => {
@@ -156,11 +249,16 @@ class Library {
         done++;
         if (done % 20 === 0 || done === files.length) onProgress({ done, total: files.length });
       });
+      // Downloaded songs live encrypted in the vault, not in your folders: keep them as long as their file exists.
+      for (const [id, t] of Object.entries(old)) {
+        if (this.vault.contains(t.path) && fs.existsSync(t.path)) next[id] = t;
+      }
       this.data.tracks = next;
-      this.data.coverScheme = COVER_SCHEME;
+      this.data.scheme = LIBRARY_SCHEME;
+      delete this.data.coverScheme;
       this.save();
       this.removeUnusedCovers();
-      return this.data;
+      return this.get();
     })();
     return this.scanning.finally(() => {
       this.scanning = null;
@@ -191,6 +289,7 @@ class Library {
       artists,
       album,
       albumArtist: c.albumartist || '',
+      albumGroup: readAlbumGroup(meta?.native),
       genre: (c.genre || []).join(', '),
       year: c.year || null,
       track: c.track?.no || null,
@@ -274,9 +373,12 @@ class Library {
     } catch {
       // no .lrc next to the song
     }
-    const { parseFile } = await mm();
+    const { parseFile, parseBuffer } = await mm();
     try {
-      const meta = await parseFile(t.path, { duration: false, skipCovers: true });
+      // Downloaded songs are encrypted on disk: read their lyrics from the decrypted song in memory.
+      const meta = t.iv
+        ? await parseBuffer(this.vault.readAll(t.path, t.iv), { path: 'song.' + t.ext }, { duration: false, skipCovers: true })
+        : await parseFile(t.path, { duration: false, skipCovers: true });
       const text = embeddedLyrics(meta.common);
       return { text, source: text ? 'embedded' : 'none' };
     } catch {
@@ -308,6 +410,15 @@ class Library {
     for (const id of ids) {
       const t = this.data.tracks[id];
       if (!t) continue;
+      // Downloaded songs can't be edited; the album group (a Musicolet PC grouping code) is the one exception.
+      if (this.isDownloaded(t.path)) {
+        // Downloaded songs can't be edited. Their album group (a Musicolet PC grouping code) is the one exception,
+        // kept in the library only: writing tags into the encrypted file would corrupt it.
+        if ('albumGroup' in changes) t.albumGroup = String(changes.albumGroup || '').trim();
+        if (Object.keys(changes).some((k) => k !== 'albumGroup')) warnings.add("Downloaded songs can't be edited. They can only be played or deleted.");
+        updated.push(t);
+        continue;
+      }
       const isMp3 = t.ext === 'mp3';
       const lrcPath = sidecarLrc(t.path);
       const hasLrc = fs.existsSync(lrcPath);
@@ -327,6 +438,8 @@ class Library {
         if ('year' in changes) tags.year = String(changes.year || '');
         if ('track' in changes) tags.trackNumber = String(changes.track || '');
         if ('disc' in changes) tags.partOfSet = String(changes.disc || '');
+        // An empty value clears the group (node-id3 can't delete a single TXXX frame; readers ignore empty ones).
+        if ('albumGroup' in changes) tags.userDefinedText = [{ description: ALBUM_GROUP_TAG, value: String(changes.albumGroup || '').trim() }];
         if ('lyrics' in changes && !hasLrc) tags.unsynchronisedLyrics = { language: 'eng', text: changes.lyrics };
         if (changes.cover?.action === 'set') {
           const buf = fs.readFileSync(changes.cover.path);
