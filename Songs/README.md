@@ -1,33 +1,37 @@
 # Songs
 
-The song catalog the app downloads from.
+The **Song Library** catalog: everything in this folder can be found and downloaded in Musicolet PC
+(sidebar → Song Library).
 
-Put audio files in this folder and push them. The app's **Download songs**
-button reads this folder straight from GitHub, lists what's in it, and copies
-the files you pick into your own music folder. Nothing else needs updating:
-the listing comes from the folder itself, so pushing a file is all it takes
-for every copy of the app to offer it.
+## Adding songs
 
-Name files `Artist - Title.ext` where you can — the download menu shows the
-artist and title separately when a name follows that pattern, and falls back to
-the plain file name when it doesn't.
+1. Put audio files in this folder (subfolders are fine) and push them to `main`.
+2. A GitHub workflow ([`catalog.yml`](../.github/workflows/catalog.yml)) runs on its own: it reads each song's
+   title, artist, album, length and cover, and commits [`catalog.json`](catalog.json) and the covers in `.covers/`.
+   That catalog is what the app searches. No new app version or release is needed.
+3. Within about 5 minutes, every copy of the app shows the new songs (or click the refresh button in the Song Library).
 
-Supported: `.mp3`, `.flac`, `.ogg`, `.oga`, `.opus`, `.m4a`, `.m4b`, `.aac`,
-`.wav`, `.webm`, `.weba`. Anything else here is ignored by the menu.
+Removing or renaming a file works the same way: push the change and the catalog updates itself.
 
-Downloads do **not** land back in this folder. They go to a folder you choose
-in the app (it offers your library folder), so a packaged build never tries to
-write into its own install directory.
+Tag your songs (title, artist, album, cover) before adding them: the Song Library's search and its artist and album
+filters use those tags. Untagged files named `Artist - Title.mp3` still work; the name is used instead.
+
+Supported: `.mp3`, `.flac`, `.ogg`, `.oga`, `.opus`, `.m4a`, `.m4b`, `.aac`, `.wav`, `.webm`, `.weba`.
+
+To rebuild the catalog by hand: `node scripts/build-catalog.mjs` (from the repository folder).
+
+## What happens to downloaded songs
+
+Downloaded songs are stored encrypted, under random names, in a hidden folder inside the app's data folder, with a
+key protected by Windows. They can be played (and deleted) in Musicolet PC, but not edited or opened elsewhere.
+This stops casual copying; it can't stop a determined person, since the app has to decrypt a song to play it.
 
 ## Two things to keep in mind
 
-Git keeps every version of every binary forever, so this folder only ever adds
-to the repository's size — removing a song later doesn't shrink a clone.
-GitHub refuses single files over 100 MB and starts warning past about 1 GB per
-repository. If the catalog outgrows that, move the files to a GitHub Release
-and point the menu at the release instead: same idea, no clone bloat, 2 GB per
-file, uploaded with `gh release upload` rather than `git push`.
+Git keeps every version of every binary forever, so this folder only ever adds to the repository's size: removing a
+song later doesn't shrink a clone. GitHub refuses single files over 100 MB and starts warning past about 1 GB per
+repository.
 
-This folder is public, and publishing music you don't hold the rights to is
-distribution. A takedown would apply to this whole repository, the player
-included, not just to the files in here.
+This folder is public: anyone can download what's in it, with or without the app, and publishing music you don't
+hold the rights to is distribution. A takedown would apply to this whole repository, the player included, not just
+to the files in here.
