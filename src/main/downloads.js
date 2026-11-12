@@ -1,14 +1,14 @@
-// Song Library downloads. The catalog is the private repository mistershenterry/musicolet-pc-songs
-// (Songs/catalog.json, built there by its own workflow). The app reads it through the GitHub API with a personal
-// access token the user pastes in Settings → Song Library (stored encrypted with Electron safeStorage).
-// Songs download one at a time and go to the library, which stores them encrypted in its vault (vault.js).
-const { net, safeStorage } = require('electron');
+// Song Library downloads. The songs live in a private repository; the app gets the catalog
+// (catalog.json), covers and songs from the Song Library server (SONGS_SERVER, a Cloudflare Worker that reads that
+// repository), so users never connect anything. Songs download one at a time and go to the library, which stores them
+// encrypted in its vault (vault.js).
+const { net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-const REPO = process.env.MUSICOLET_PC_SONGS_REPO || 'mistershenterry/musicolet-pc-songs';
-// MUSICOLET_PC_CATALOG: a plain folder URL ending in "/" (no token needed), e.g. a local test server.
-const TEST_BASE = process.env.MUSICOLET_PC_CATALOG || null;
+// Serves Songs/<path> of the songs repository at <SONGS_SERVER><path>.
+// MUSICOLET_PC_CATALOG: another folder URL ending in "/", e.g. a local test server.
+const SONGS_SERVER = process.env.MUSICOLET_PC_CATALOG || 'https://musicolet-songs.thebaconhelper.workers.dev/';
 const CATALOG_TTL = 5 * 60 * 1000;
 const PROGRESS_EVERY_MS = 250;
 
@@ -21,90 +21,31 @@ class Downloads {
     this.queue = [];
     this.active = null;
     this.cache = null;
-    this.settingsFile = path.join(userDir, 'song-library.json');
     this.coverDir = path.join(userDir, 'song-library-covers');
     fs.mkdirSync(this.coverDir, { recursive: true });
-    try {
-      this.settings = JSON.parse(fs.readFileSync(this.settingsFile, 'utf8'));
-    } catch {
-      this.settings = {};
-    }
   }
 
-  // ---------- access token ----------
-  get token() {
-    if (TEST_BASE || !this.settings.token) return null;
-    try {
-      const stored = Buffer.from(this.settings.token, 'base64');
-      return this.settings.protected ? safeStorage.decryptString(stored) : stored.toString('utf8');
-    } catch {
-      return null;
-    }
-  }
-
-  saveSettings() {
-    fs.writeFileSync(this.settingsFile, JSON.stringify(this.settings));
-  }
-
-  // Check a token against the songs repository, and keep it if it works.
-  async setToken(token) {
-    token = String(token || '').trim();
-    if (!token) return { ok: false, error: 'Paste a token first.' };
-    const res = await net.fetch(`https://api.github.com/repos/${REPO}`, { headers: this.headers(token) });
-    if (res.status === 401) return { ok: false, error: "GitHub doesn't accept this token. Check that it was copied completely and hasn't expired." };
-    if (res.status === 404 || res.status === 403) return { ok: false, error: `This token doesn't have access to ${REPO}. Give it read access to that repository's contents.` };
-    if (!res.ok) return { ok: false, error: `GitHub answered ${res.status}. Try again in a moment.` };
-    const canProtect = safeStorage.isEncryptionAvailable();
-    this.settings.token = (canProtect ? safeStorage.encryptString(token) : Buffer.from(token, 'utf8')).toString('base64');
-    this.settings.protected = canProtect;
-    this.saveSettings();
-    this.cache = null;
-    return { ok: true, ...(await this.status()) };
-  }
-
-  clearToken() {
-    delete this.settings.token;
-    delete this.settings.protected;
-    this.saveSettings();
-    this.cache = null;
-    return { connected: false };
-  }
-
-  async status() {
-    if (TEST_BASE) return { connected: true, repo: 'test catalog' };
-    return { connected: !!this.token, repo: REPO };
-  }
-
-  headers(token = this.token, raw = false) {
-    const h = { Accept: raw ? 'application/vnd.github.raw' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
-    if (token) h.Authorization = `Bearer ${token}`;
-    return h;
-  }
-
-  // A file from the songs repository (or the test folder).
+  // A file from the Song Library server.
   fetchFile(rel) {
-    if (TEST_BASE) return net.fetch(TEST_BASE + encodePath(rel), { cache: 'no-store' });
-    return net.fetch(`https://api.github.com/repos/${REPO}/contents/Songs/${encodePath(rel)}`, { headers: this.headers(this.token, true), cache: 'no-store' });
+    return net.fetch(SONGS_SERVER + encodePath(rel), { cache: 'no-store' });
   }
 
   // ---------- catalog ----------
   async catalog(force = false) {
-    if (!TEST_BASE && !this.token) return { songs: [], needsToken: true };
     if (!force && this.cache && Date.now() - this.cache.at < CATALOG_TTL) return this.view();
     const res = await this.fetchFile('catalog.json');
-    if (res.status === 401) return { songs: [], needsToken: true, error: 'The saved token stopped working (expired or revoked). Add a new one in Settings → Song Library.' };
     if (res.status === 404) {
-      // No catalog yet, or the token lost access to the repository.
       this.cache = { at: Date.now(), songs: [] };
       return this.view();
     }
-    if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
+    // The server is down or can't read the songs right now (fixed on the server, not in the app).
+    if (!res.ok) return { songs: [], unavailable: true };
     const data = await res.json();
     this.cache = { at: Date.now(), songs: Array.isArray(data.songs) ? data.songs : [] };
     return this.view();
   }
 
-  // Covers are served to the app by the mco://libcover/ protocol (the private repository needs the token).
+  // Covers are served to the app by the mco://libcover/ protocol and cached on disk.
   coverUrl(song) {
     return song.cover ? 'mco://libcover/' + encodeURIComponent(song.cover) : null;
   }
@@ -162,7 +103,7 @@ class Downloads {
     this.emit();
     try {
       const res = await this.fetchFile(item.file);
-      if (res.status === 401) throw new Error('the Song Library token stopped working');
+      if (res.status === 401) throw new Error('the Song Library is unavailable right now');
       if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
       item.size = Number(res.headers.get('content-length')) || item.size || 0;
       // Kept in memory and never written to disk unencrypted.

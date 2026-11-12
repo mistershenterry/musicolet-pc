@@ -166,12 +166,7 @@ The **Song Library** tab lets you search for songs, filter them by artist or alb
 While songs download, a **Downloads** item above Settings shows their progress. Downloaded songs can be played and
 deleted, but not edited, and they're stored encrypted so they only play in Musicolet PC.
 
-The songs come from a private repository, so the Song Library needs access:
-
-1. Ask the repository owner to add you to `mistershenterry/musicolet-pc-songs`.
-2. Create a fine-grained token at <https://github.com/settings/personal-access-tokens/new>: **Repository access →
-   Only select repositories → musicolet-pc-songs**, and **Permissions → Contents → Read-only**.
-3. Paste it in **Settings → Song Library** and click **Connect**. The token is stored encrypted by Windows.
+There's nothing to set up: the Song Library works as soon as you open the app.
 
 ### Discord status
 

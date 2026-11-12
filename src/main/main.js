@@ -148,15 +148,6 @@ function registerIpc() {
   });
   ipcMain.handle('downloads:enqueue', (_e, id) => downloads.enqueue(id));
   ipcMain.handle('downloads:state', () => downloads.state());
-  ipcMain.handle('songlib:status', () => downloads.status());
-  ipcMain.handle('songlib:setToken', async (_e, token) => {
-    try {
-      return await downloads.setToken(token);
-    } catch (err) {
-      return { ok: false, error: `Couldn't reach GitHub (${String(err?.message || err)}). Check your internet connection.` };
-    }
-  });
-  ipcMain.handle('songlib:clearToken', () => downloads.clearToken());
 
   ipcMain.handle('shell:showInFolder', (_e, file) => shell.showItemInFolder(file));
 

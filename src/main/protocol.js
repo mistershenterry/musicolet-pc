@@ -132,7 +132,7 @@ function handleProtocol({ rendererDir, coverDir, isAllowedMedia, vaultInfo, vaul
       return serveFile(file, request);
     }
     if (url.host === 'libcover' && songCover) {
-      // Song Library covers: fetched from the private songs repository with the token, cached on disk.
+      // Song Library covers: fetched from the Song Library server, cached on disk.
       return songCover(pathname.replace(/^\/+/, '')).then((file) => (file ? serveFile(file, request) : new Response('Not found', { status: 404 })));
     }
     if (url.host === 'cover') {
