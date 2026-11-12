@@ -33,6 +33,13 @@ contextBridge.exposeInMainWorld('api', {
   bulletinCheck: () => ipcRenderer.invoke('bulletin:check'),
   onBulletin: (cb) => ipcRenderer.on('bulletin:state', (_e, state) => cb(state)),
 
+  songCatalog: (force) => ipcRenderer.invoke('downloads:catalog', force),
+  downloadSong: (id) => ipcRenderer.invoke('downloads:enqueue', id),
+  downloadQueue: () => ipcRenderer.invoke('downloads:state'),
+  onDownloads: (cb) => ipcRenderer.on('downloads:update', (_e, queue) => cb(queue)),
+  onDownloadDone: (cb) => ipcRenderer.on('downloads:done', (_e, info) => cb(info)),
+  onDownloadFailed: (cb) => ipcRenderer.on('downloads:failed', (_e, info) => cb(info)),
+
   showInFolder: (file) => ipcRenderer.invoke('shell:showInFolder', file),
   pickImage: () => ipcRenderer.invoke('dialog:pickImage'),
   saveCover: (cover, name) => ipcRenderer.invoke('cover:save', cover, name),

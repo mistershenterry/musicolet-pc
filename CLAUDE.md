@@ -35,3 +35,15 @@ When the user asks to separate (or merge back) albums, use `scripts/album-group.
 4. Tell the user to restart Musicolet PC or use Settings → Rescan library; changed files are re-read on the next scan.
 
 Only MP3 files can be written. This edits tags in the user's music files, so say which files changed.
+
+## Song Library (downloadable songs)
+
+- Catalog = audio files in `Songs/` on `main`. `.github/workflows/catalog.yml` runs `scripts/build-catalog.mjs` on push
+  and commits `Songs/catalog.json` + `Songs/.covers/`. The app reads them from raw.githubusercontent.com
+  (`src/main/downloads.js`; `MUSICOLET_PC_CATALOG` overrides the base URL for testing).
+- Downloads are encrypted (AES-256-CTR, key protected with Electron safeStorage) in a random hidden folder in userData
+  (`src/main/vault.js`) and played through the `mco://media` protocol, which decrypts on the fly with Range support.
+- Downloaded songs (`t.downloaded` in the renderer, `library.isDownloaded()` in main) can only be played or deleted:
+  no tag editing, no Go to folder / Show in Explorer, not in the Folders tab. Their album group is kept in the library
+  only (writing tags would corrupt the encrypted file).
+- Don't add music to `Songs/` without the user asking: the repository is public.

@@ -1,6 +1,6 @@
 {
   "name": "musicolet-pc",
-  "version": "1.0.8-next.2",
+  "version": "1.0.8-next.3",
   "description": "An offline desktop music player for Windows/macOS/Linux inspired by Musicolet for Android: multiple queues, folders, synced lyrics, tag editor, equalizer and sleep timer.",
   "main": "src/main/main.js",
   "scripts": {
@@ -8,7 +8,8 @@
     "dist": "electron-builder --win nsis portable --publish never",
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux AppImage",
-    "album-group": "node scripts/album-group.mjs"
+    "album-group": "node scripts/album-group.mjs",
+    "catalog": "node scripts/build-catalog.mjs"
   },
   "repository": {
     "type": "git",

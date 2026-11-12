@@ -1,0 +1,48 @@
+# Rebuilds the Song Library catalog (Songs/catalog.json + Songs/.covers) whenever songs are added, changed or
+# removed in Songs/ on main, so every copy of the app sees the new songs. Never builds or publishes a release.
+name: Song catalog
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Songs/**'
+      - '!Songs/catalog.json'
+      - '!Songs/.covers/**'
+      - 'scripts/build-catalog.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: song-catalog
+  cancel-in-progress: false
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Build the catalog
+        run: |
+          npm install --no-save --ignore-scripts music-metadata@11
+          node scripts/build-catalog.mjs
+
+      - name: Commit the catalog if it changed
+        run: |
+          git add -A Songs/catalog.json Songs/.covers
+          if git diff --cached --quiet; then
+            echo "Catalog unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update the song catalog"
+          git pull --rebase origin main
+          git push

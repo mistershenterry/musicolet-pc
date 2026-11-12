@@ -70,11 +70,13 @@ const Lyrics = {
     el.classList.toggle('synced', data.synced);
     el.style.setProperty('--lyrics-size', Store.state.settings.lyricsSize + 'px');
     if (!data.lines.some((l) => l.text)) {
+      // Downloaded songs can't be edited, so there's no "Add lyrics" for them.
+      const downloaded = Store.track(id)?.downloaded;
       el.append(
         h('div', { class: 'lyrics-empty' },
           h('div', { text: 'No lyrics for this song' }),
-          h('div', { class: 'muted small', text: 'Add them in the tag editor, or put a .lrc file with the same name next to the song.' }),
-          textBtn('Add lyrics', () => Dialogs.tagEditor([id], { focusLyrics: true }), { iconName: 'edit' }),
+          downloaded ? null : h('div', { class: 'muted small', text: 'Add them in the tag editor, or put a .lrc file with the same name next to the song.' }),
+          downloaded ? null : textBtn('Add lyrics', () => Dialogs.tagEditor([id], { focusLyrics: true }), { iconName: 'edit' }),
         ),
       );
       return;

@@ -34,6 +34,10 @@ const Dialogs = {
   },
 
   async tagEditor(ids, { focusLyrics = false } = {}) {
+    // Songs downloaded from the Song Library can only be played or deleted.
+    const editable = ids.filter((id) => !Store.track(id)?.downloaded);
+    if (editable.length < ids.length) toast(editable.length ? 'Downloaded songs were left out: they can only be played or deleted.' : "Downloaded songs can't be edited. They can only be played or deleted.", 4000);
+    ids = editable;
     if (!ids.length) return;
     const single = ids.length === 1;
     const tracks = ids.map((id) => Store.track(id)).filter(Boolean);

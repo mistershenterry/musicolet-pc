@@ -84,7 +84,37 @@ function isInside(dir, file) {
   return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
-function handleProtocol({ rendererDir, coverDir, isAllowedMedia }) {
+// A downloaded song: decrypted on the fly from the vault, with Range support so seeking works.
+async function serveVault(file, info, vault, request) {
+  let size;
+  try {
+    size = (await fs.promises.stat(file)).size;
+  } catch {
+    return new Response('Not found', { status: 404 });
+  }
+  const headers = {
+    'Content-Type': MIME['.' + info.ext] || 'application/octet-stream',
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'no-cache',
+    'Access-Control-Allow-Origin': '*',
+  };
+  let start = 0;
+  let end = size - 1;
+  const m = /bytes=(\d*)-(\d*)/.exec(request.headers.get('range') || '');
+  if (m && size > 0) {
+    if (m[1] === '' && m[2] !== '') start = Math.max(0, size - parseInt(m[2], 10));
+    else {
+      if (m[1] !== '') start = parseInt(m[1], 10);
+      if (m[2] !== '') end = Math.min(parseInt(m[2], 10), size - 1);
+    }
+    if (start >= size || end < start) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });
+    headers['Content-Range'] = `bytes ${start}-${end}/${size}`;
+  }
+  headers['Content-Length'] = String(end - start + 1);
+  return new Response(vault.stream(file, info.iv, start, end), { status: m ? 206 : 200, headers });
+}
+
+function handleProtocol({ rendererDir, coverDir, isAllowedMedia, vaultInfo, vault }) {
   protocol.handle('mco', (request) => {
     const url = new URL(request.url);
     const pathname = decodeURIComponent(url.pathname);
@@ -97,6 +127,8 @@ function handleProtocol({ rendererDir, coverDir, isAllowedMedia }) {
     if (url.host === 'media') {
       const file = pathname.replace(/^\/+/, '');
       if (!isAllowedMedia(file)) return new Response('Forbidden', { status: 403 });
+      const info = vaultInfo?.(file);
+      if (info) return serveVault(file, info, vault, request);
       return serveFile(file, request);
     }
     if (url.host === 'cover') {

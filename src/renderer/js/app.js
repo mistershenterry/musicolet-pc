@@ -16,6 +16,7 @@ const App = {
     Presence.init();
     Updates.init();
     BulletinBoard.init();
+    SongDownloads.init();
 
     const q = Store.activeQueue();
     if (q.items.length) Player.load(false, q.position || 0);
@@ -330,7 +331,7 @@ const App = {
         this.toggleFavCurrent();
       } else if (!ctrl && !e.altKey && k.toLowerCase() === 'l') {
         this.showPanel(Store.state.ui.panel === 'lyrics' ? 'queue' : 'lyrics');
-      } else if (!ctrl && !e.altKey && /^[1-7]$/.test(k)) {
+      } else if (!ctrl && !e.altKey && /^[1-8]$/.test(k)) {
         Views.go(TABS[parseInt(k, 10) - 1].id);
       }
     });
