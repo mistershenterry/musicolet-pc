@@ -51,6 +51,9 @@ const TRACK_SORTS = {
   track: { label: 'Track number', get: (t) => (t.disc || 1) * 10000 + (t.track || 0), num: true },
 };
 
+// Folders-tab key of the virtual "Downloaded Songs" folder (Song Library downloads).
+const DOWNLOADS_FOLDER = '@downloaded-songs';
+
 const Store = {
   lib: { roots: [], tracks: {} },
   state: null,
@@ -100,6 +103,10 @@ const Store = {
       return { path: p, key: pathKey(p) };
     });
     const downloadsKey = this.lib.downloadsDir ? pathKey(this.lib.downloadsDir.replace(/[\\/]+$/, '')) + (IS_WIN ? '\\' : '/') : null;
+
+    // Songs downloaded from the Song Library live in the app's hidden, randomly named folder. The Folders tab shows
+    // it as "Downloaded Songs" (it's never shown or opened in Explorer).
+    const downloadsFolder = { key: DOWNLOADS_FOLDER, path: 'Downloaded Songs', name: 'Downloaded Songs', virtual: true, subdirs: new Set(), tracks: [], total: 0, parent: null };
 
     const folderNode = (p) => {
       const key = pathKey(p);
@@ -151,9 +158,13 @@ const Store = {
         ge.tracks.push(t.id);
       }
 
-      // Songs from the Song Library: play/delete only, and they don't appear in the Folders tab.
+      // Songs from the Song Library: play/delete only, and in the Folders tab they're all in "Downloaded Songs".
       t.downloaded = !!downloadsKey && pathKey(t.path).startsWith(downloadsKey);
-      if (t.downloaded) continue;
+      if (t.downloaded) {
+        downloadsFolder.tracks.push(t.id);
+        downloadsFolder.total++;
+        continue;
+      }
 
       // Folder tree: attach the track to its folder and bubble counts up to the library root.
       const node = folderNode(t.dir);
@@ -178,6 +189,7 @@ const Store = {
       else a.artist = 'Various artists';
     }
 
+    if (downloadsFolder.total) folders.set(DOWNLOADS_FOLDER, downloadsFolder);
     this.idx = { albums, artists, genres, folders, albumOf, byPath, roots };
     this.favSet = new Set(this.state.favorites);
   },

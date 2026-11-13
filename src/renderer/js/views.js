@@ -552,7 +552,7 @@ const Views = {
 
   folderRow(f, subtitle) {
     const row = h('div', { class: 'folder-row', tabindex: '0' },
-      h('span', { class: 'folder-ic', html: icon('folder', 22) }),
+      h('span', { class: 'folder-ic', html: icon(f.virtual ? 'cloudDownload' : 'folder', 22) }),
       h('div', { class: 'folder-main' }, h('div', { class: 'ellipsis', text: f.name || f.path }), subtitle ? h('div', { class: 'muted small ellipsis', text: subtitle }) : null),
       h('span', { class: 'muted small', text: plural(f.total, 'song') }),
     );
@@ -564,8 +564,8 @@ const Views = {
       const ids = Store.sortIds(this.folderIds(f.key), 'filename');
       Menu.show(e.clientX, e.clientY, [
         ...this.collectionItems(ids),
-        { sep: true },
-        { label: 'Show in Explorer', icon: 'folder', action: () => api.showInFolder(f.path) },
+        // "Downloaded Songs" is the app's hidden folder: it can't be opened in Explorer.
+        ...(f.virtual ? [] : [{ sep: true }, { label: 'Show in Explorer', icon: 'folder', action: () => api.showInFolder(f.path) }]),
       ]);
     });
     return row;
@@ -579,12 +579,15 @@ const Views = {
     } else {
       rows = Store.idx.roots.map((r) => folders.get(r.key)).filter(Boolean);
     }
+    // "Downloaded Songs" (Song Library downloads) comes after the library folders.
+    const downloaded = folders.get(DOWNLOADS_FOLDER);
+    if (downloaded && this.folderMode() !== 'flat') rows.push(downloaded);
     const listEl = h('div', { class: 'folder-list scroll' });
     const draw = () => {
       listEl.innerHTML = '';
       const q = this.query.toLowerCase();
       const shown = rows.filter((f) => !q || f.path.toLowerCase().includes(q));
-      for (const f of shown) listEl.append(this.folderRow(f, this.folderMode() === 'flat' ? f.path : f.path));
+      for (const f of shown) listEl.append(this.folderRow(f, f.virtual ? 'Songs downloaded from the Song Library' : f.path));
       if (!shown.length) listEl.append(h('div', { class: 'tl-empty', text: 'No folders' }));
     };
     content.append(
@@ -605,7 +608,7 @@ const Views = {
     const subs = [...f.subdirs].map((k) => Store.idx.folders.get(k)).filter(Boolean).sort((a, b) => cmp(a.name, b.name));
     this.trackView(content, {
       title: f.name,
-      subtitle: f.path,
+      subtitle: f.virtual ? 'Songs downloaded from the Song Library' : f.path,
       getIds: () => f.tracks,
       sortView: 'folder',
       sortFallback: 'filename',
@@ -613,7 +616,7 @@ const Views = {
       actions: [
         textBtn('Play all', () => Player.replaceQueue(Store.sortIds(this.folderIds(f.key), 'filename')), { iconName: 'play', primary: true, title: 'Play this folder and its subfolders' }),
         iconBtn('more', 'More', (e) =>
-          Menu.show(e.clientX, e.clientY, [...this.collectionItems(Store.sortIds(this.folderIds(f.key), 'filename')), { sep: true }, { label: 'Show in Explorer', icon: 'folder', action: () => api.showInFolder(f.path) }]),
+          Menu.show(e.clientX, e.clientY, [...this.collectionItems(Store.sortIds(this.folderIds(f.key), 'filename')), ...(f.virtual ? [] : [{ sep: true }, { label: 'Show in Explorer', icon: 'folder', action: () => api.showInFolder(f.path) }])]),
         ),
       ],
     });
