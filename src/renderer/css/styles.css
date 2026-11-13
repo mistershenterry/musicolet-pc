@@ -1651,6 +1651,13 @@ kbd {
 .download-list {
   padding: 8px;
 }
+.lib-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 8px 8px;
+}
 .lib-row,
 .dl-row {
   display: flex;

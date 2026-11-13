@@ -18,6 +18,9 @@ const AUTO_PLAYLISTS = [
   { id: 'never-played', name: 'Never played', icon: 'song' },
 ];
 
+// Song Library: how many songs one page shows.
+const LIBRARY_PAGE_SIZE = 500;
+
 const Views = {
   stack: [],
   list: null,
@@ -939,12 +942,19 @@ const Views = {
 
   // ---------- Song Library (download songs) ----------
   render_library(v, content) {
+    // Sorted by file name the way Windows Explorer does: letters ignore case, and numbers count as numbers
+    // ("Song 2" before "Song 10").
+    // The name without its extension, as Explorer compares it ("Apple" before "apple 2").
+    const fileName = (s) => String(s.file || '').split('/').pop().replace(/\.[^.]+$/, '');
+    const sortLikeExplorer = (list) => [...(list || [])].sort((a, b) => cmp(fileName(a), fileName(b)) || cmp(a.file, b.file));
     const listEl = h('div', { class: 'song-library scroll' });
     const artistSel = h('select', { class: 'input lib-filter', title: 'Filter by artist' });
     const albumSel = h('select', { class: 'input lib-filter', title: 'Filter by album' });
     let songs = null;
     let error = null;
     v.filters ||= { artist: '', album: '' };
+    v.page ||= 0;
+    let lastSearch = null;
 
     const fill = (sel, label, values, current) => {
       sel.innerHTML = '';
@@ -1026,9 +1036,35 @@ const Views = {
         listEl.append(message("Couldn't find that song", `There's nothing ${what || 'like that'} in the Song Library. Check the spelling, or try another artist or album.`));
         return;
       }
+      // Big libraries are split into pages of 500 songs so the list stays fast.
+      // A new search or filter starts again on the first page.
+      const search = `${words.join(' ')}|${v.filters.artist}|${v.filters.album}`;
+      if (lastSearch !== null && search !== lastSearch) v.page = 0;
+      lastSearch = search;
+      const pages = Math.ceil(shown.length / LIBRARY_PAGE_SIZE);
+      v.page = Math.min(Math.max(0, v.page), pages - 1);
+      const first = v.page * LIBRARY_PAGE_SIZE;
       const frag = document.createDocumentFragment();
-      for (const s of shown) frag.append(row(s));
+      for (const s of shown.slice(first, first + LIBRARY_PAGE_SIZE)) frag.append(row(s));
       listEl.append(frag);
+      if (pages > 1) listEl.append(pager(first, Math.min(first + LIBRARY_PAGE_SIZE, shown.length), shown.length, pages));
+    };
+
+    const goToPage = (page) => {
+      v.page = page;
+      draw();
+      listEl.scrollTop = 0;
+    };
+    const pager = (from, to, total, pages) => {
+      const prev = textBtn('Previous', () => goToPage(v.page - 1), { iconName: 'back' });
+      const next = textBtn('Next', () => goToPage(v.page + 1));
+      prev.disabled = v.page === 0;
+      next.disabled = v.page >= pages - 1;
+      return h('div', { class: 'lib-pager' },
+        prev,
+        h('span', { class: 'muted small', text: `Page ${v.page + 1} of ${pages} · songs ${from + 1}–${to} of ${total}` }),
+        next,
+      );
     };
 
     const load = async (force) => {
@@ -1038,7 +1074,7 @@ const Views = {
         draw();
       }
       const res = await api.songCatalog(force);
-      songs = res.songs;
+      songs = sortLikeExplorer(res.songs);
       error = res.error || null;
       unavailable = !!res.unavailable;
       fillFilters();
@@ -1056,7 +1092,7 @@ const Views = {
     );
     // Rows update when a download starts or finishes.
     this.cleanups.push(SongDownloads.subscribe(() => songs && api.songCatalog(false).then((res) => {
-      songs = res.songs;
+      songs = sortLikeExplorer(res.songs);
       draw();
     })));
     draw();
