@@ -19,6 +19,8 @@ const LIBRARY_SCHEME = 3;
 // form one album. Stored as ID3 TXXX:MUSICOLET_ALBUM_GROUP in MP3s; also read as a Vorbis comment (FLAC/OGG)
 // or an iTunes freeform atom (M4A) if another tagger wrote it. An empty value means "no group".
 const ALBUM_GROUP_TAG = 'MUSICOLET_ALBUM_GROUP';
+// Bumped when downloaded songs' album groups must be re-read from their files (1: groups come from the file only).
+const DOWNLOAD_GROUPS_SCHEME = 1;
 
 function readAlbumGroup(native) {
   for (const tags of Object.values(native || {})) {
@@ -133,6 +135,17 @@ class Library {
     return t?.iv ? { iv: t.iv, ext: t.ext } : null;
   }
 
+  // The album group written in a downloaded song's file (decrypted in memory only).
+  async downloadedAlbumGroup(t) {
+    try {
+      const { parseBuffer } = await mm();
+      const meta = await parseBuffer(this.vault.readAll(t.path, t.iv), { path: 'song.' + t.ext }, { duration: false, skipCovers: true });
+      return readAlbumGroup(meta?.native);
+    } catch {
+      return '';
+    }
+  }
+
   // A song downloaded from the Song Library: read its tags from memory, then store it encrypted in the vault.
   // `song` is the catalog entry (its title/artist/album are used when the file has no tags).
   async addDownloaded(song, plain) {
@@ -160,7 +173,8 @@ class Library {
       artists,
       album: c.album || song.album || '',
       albumArtist: c.albumartist || '',
-      albumGroup: '',
+      // The album group comes from the song file, as the Song Library has it. It can't be changed in the app.
+      albumGroup: readAlbumGroup(meta?.native),
       genre: (c.genre || []).join(', '),
       year: c.year || null,
       track: c.track?.no || null,
@@ -250,9 +264,13 @@ class Library {
         if (done % 20 === 0 || done === files.length) onProgress({ done, total: files.length });
       });
       // Downloaded songs live encrypted in the vault, not in your folders: keep them as long as their file exists.
+      const refreshGroups = this.data.downloadGroups !== DOWNLOAD_GROUPS_SCHEME;
       for (const [id, t] of Object.entries(old)) {
-        if (this.vault.contains(t.path) && fs.existsSync(t.path)) next[id] = t;
+        if (!this.vault.contains(t.path) || !fs.existsSync(t.path)) continue;
+        if (refreshGroups) t.albumGroup = await this.downloadedAlbumGroup(t);
+        next[id] = t;
       }
+      this.data.downloadGroups = DOWNLOAD_GROUPS_SCHEME;
       this.data.tracks = next;
       this.data.scheme = LIBRARY_SCHEME;
       delete this.data.coverScheme;
@@ -410,13 +428,9 @@ class Library {
     for (const id of ids) {
       const t = this.data.tracks[id];
       if (!t) continue;
-      // Downloaded songs can't be edited; the album group (a Musicolet PC grouping code) is the one exception.
+      // Downloaded songs can't be edited at all, not even their album group (that comes from the Song Library).
       if (this.isDownloaded(t.path)) {
-        // Downloaded songs can't be edited. Their album group (a Musicolet PC grouping code) is the one exception,
-        // kept in the library only: writing tags into the encrypted file would corrupt it.
-        if ('albumGroup' in changes) t.albumGroup = String(changes.albumGroup || '').trim();
-        if (Object.keys(changes).some((k) => k !== 'albumGroup')) warnings.add("Downloaded songs can't be edited. They can only be played or deleted.");
-        updated.push(t);
+        warnings.add("Downloaded songs can't be edited. They can only be played or deleted.");
         continue;
       }
       const isMp3 = t.ext === 'mp3';

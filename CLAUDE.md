@@ -50,6 +50,6 @@ Only MP3 files can be written. This edits tags in the user's music files, so say
   (`src/main/vault.js`) and played through the `mco://media` protocol, which decrypts on the fly with Range support.
 - Downloaded songs (`t.downloaded` in the renderer, `library.isDownloaded()` in main) can only be played or deleted:
   no tag editing, no Go to folder / Show in Explorer. In the Folders tab they all appear in a virtual "Downloaded Songs"
-  folder (`DOWNLOADS_FOLDER` in store.js), never opened in Explorer. Their album group is kept in the library
-  only (writing tags would corrupt the encrypted file).
+  folder (`DOWNLOADS_FOLDER` in store.js), never opened in Explorer. Their album group comes from the song file in
+  the Song Library (`TXXX:MUSICOLET_ALBUM_GROUP`, set before pushing it) and can't be changed in the app.
 - Only add songs to the songs repository when the user asks: every song there can be downloaded by anyone using the app.

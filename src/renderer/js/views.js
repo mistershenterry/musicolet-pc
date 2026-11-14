@@ -355,7 +355,8 @@ const Views = {
       { sep: true },
       { label: allFav ? 'Remove from favorites' : 'Add to favorites', icon: allFav ? 'heart' : 'heartOutline', hint: single ? 'F' : '', action: () => Store.setFav(ids, !allFav) },
       anyDownloaded ? null : { label: single ? 'Edit tags…' : `Edit tags of ${ids.length} songs…`, icon: 'edit', action: () => Dialogs.tagEditor(ids) },
-      this.albumGroupItem(ids),
+      // A downloaded song's album group comes from the Song Library and can't be changed.
+      anyDownloaded ? null : this.albumGroupItem(ids),
     ];
     if (t) {
       items.push(
