@@ -14,8 +14,8 @@ const SongDownloads = {
       toast(`Downloaded "${title}"${artist ? ` by ${artist}` : ''}`);
       this.changed();
     });
-    api.onDownloadFailed(({ title, error }) => {
-      toast(`Couldn't download "${title}": ${error}`, 6000);
+    api.onDownloadFailed(({ title, error, code }) => {
+      toast(`Couldn't download "${title}": ${errorText(error, code)}`, 6000);
       this.changed();
     });
   },
@@ -41,7 +41,11 @@ const SongDownloads = {
     const res = await api.downloadSong(song.id);
     if (!res.ok && res.reason === 'downloaded') toast(`"${song.title}" is already downloaded`);
     else if (!res.ok && res.reason === 'queued') toast(`"${song.title}" is already in the download queue`);
+    else if (!res.ok && res.error) toast(`Couldn't start the download of "${song.title}": ${errorText(res.error, res.code)}`, 6000);
     else if (!res.ok) toast(`Couldn't start the download of "${song.title}"`);
+    // Everyone's downloads share one queue on the Song Library server; when it's full, songs wait their turn.
+    else if (res.waiting) toast(`The download queue is full right now. "${song.title}" was added to the queue: you're number ${res.position}. It starts by itself when it's its turn.`, 7000);
     return res;
   },
 };
+

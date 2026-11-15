@@ -1005,12 +1005,18 @@ const Views = {
       return r;
     };
 
-    let unavailable = false;
+    let failure = null;
     const draw = () => {
       listEl.innerHTML = '';
-      if (unavailable) {
-        // The Song Library server is down or can't read the songs right now.
-        listEl.append(message('The Song Library is unavailable', 'Musicolet PC can’t reach the Song Library right now. Try again later.', textBtn('Try again', () => load(true), { iconName: 'refresh' })));
+      if (failure) {
+        // 277 = no internet, -1 = the Song Library is down (e.g. out of free requests for the day), 429 = too fast.
+        listEl.append(h('div', { class: 'lib-message lib-error' },
+          h('div', { class: 'lib-message-icon', html: icon('cloudDownload', 40) }),
+          h('div', { class: 'error-code', text: String(failure.code) }),
+          h('h3', { text: failure.message }),
+          h('p', { class: 'muted small', text: 'Error code ' + failure.code }),
+          textBtn('Try again', () => load(true), { iconName: 'refresh' }),
+        ));
         return;
       }
       if (error && !songs?.length) {
@@ -1034,7 +1040,8 @@ const Views = {
       });
       if (!shown.length) {
         const what = [this.query.trim() && `"${this.query.trim()}"`, v.filters.artist && `by ${v.filters.artist}`, v.filters.album && `on ${v.filters.album}`].filter(Boolean).join(' ');
-        listEl.append(message("Couldn't find that song", `There's nothing ${what || 'like that'} in the Song Library. Check the spelling, or try another artist or album.`));
+        listEl.append(message("Couldn't find that song", `There's nothing ${what || 'like that'} in the Song Library. Check the spelling, or suggest the song so it can be added.`,
+          textBtn('Suggest a song', () => Dialogs.suggestSong({ title: this.query.trim() }), { iconName: 'add', primary: true })));
         return;
       }
       // Big libraries are split into pages of 500 songs so the list stays fast.
@@ -1077,7 +1084,7 @@ const Views = {
       const res = await api.songCatalog(force);
       songs = sortLikeExplorer(res.songs);
       error = res.error || null;
-      unavailable = !!res.unavailable;
+      failure = res.failure || null;
       fillFilters();
       draw();
     };
@@ -1087,7 +1094,7 @@ const Views = {
         title: 'Song Library',
         subtitle: 'Search for a song and click it to download',
         onSearch: draw,
-        actions: [artistSel, albumSel, iconBtn('refresh', 'Refresh the Song Library', () => load(true))],
+        actions: [artistSel, albumSel, textBtn('Suggest a song', () => Dialogs.suggestSong({ title: this.query.trim() }), { iconName: 'add' }), iconBtn('refresh', 'Refresh the Song Library', () => load(true))],
       }),
       h('div', { class: 'view-body' }, listEl),
     );
@@ -1132,7 +1139,10 @@ const Views = {
           listEl.append(r);
         }
         r.querySelector('.dl-bar > div').style.width = pct(q) + '%';
-        r.querySelector('.dl-status').textContent = q.status === 'queued' ? 'Waiting…' : q.size ? `${pct(q)}% · ${mb(q.received)} of ${mb(q.size)}` : 'Downloading…';
+        r.querySelector('.dl-status').textContent =
+          q.status === 'waiting' ? `In queue · number ${q.position}`
+          : q.status === 'queued' || q.status === 'joining' ? 'Starting…'
+          : q.size ? `${pct(q)}% · ${mb(q.received)} of ${mb(q.size)}` : 'Downloading…';
       }
     };
     content.append(

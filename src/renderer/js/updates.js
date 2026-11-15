@@ -19,7 +19,7 @@ const Updates = {
       this.prompted = s.version;
       this.prompt();
     }
-    if (s.state === 'error') toast('Update failed: ' + (s.error || 'unknown error'), 6000);
+    if (s.state === 'error') toast('Update failed: ' + (s.error ? errorText(s.error, s.code) : 'unknown error'), 6000);
   },
 
   // Settings dialog subscribes while it's open.

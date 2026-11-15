@@ -2,6 +2,7 @@
 // Installed copy (NSIS): downloads the new installer and runs it silently on "Update now", then relaunches.
 // Portable .exe: can't replace itself, so it only reports the new version and links to its download.
 const { app, shell, net } = require('electron');
+const { isNetworkError, updateFailure } = require('./errors');
 
 const REPO = 'mistershenterry/musicolet-pc';
 const RELEASES_URL = `https://github.com/${REPO}/releases/latest`;
@@ -100,7 +101,14 @@ class Updater {
     autoUpdater.on('error', (err) => {
       // A failed background check shouldn't bother anyone; a failed download should.
       const prev = this.state.state;
-      this.set({ ...this.state, state: prev === 'downloading' ? 'error' : 'check-failed', error: String(err?.message || err).split('\n')[0] });
+      if (prev === 'downloading') {
+        // A failed download keeps its own reason unless the internet is the problem.
+        const f = isNetworkError(err) ? updateFailure(err) : null;
+        this.set({ ...this.state, state: 'error', error: f ? f.message : String(err?.message || err).split('\n')[0], code: f?.code });
+      } else {
+        const f = updateFailure(err);
+        this.set({ ...this.state, state: 'check-failed', error: f.message, code: f.code });
+      }
     });
     this.auto = autoUpdater;
   }
@@ -112,7 +120,11 @@ class Updater {
       if (this.auto) await this.auto.checkForUpdates();
       else await this.checkPortable();
     } catch (err) {
-      if (this.state.state === 'checking') this.set({ state: 'check-failed', error: String(err?.message || err).split('\n')[0] });
+      if (this.state.state === 'checking') {
+        // 277 = no internet, -1 = the update server answered with an error.
+        const f = updateFailure(err);
+        this.set({ state: 'check-failed', error: f.message, code: f.code });
+      }
     }
     return this.state;
   }

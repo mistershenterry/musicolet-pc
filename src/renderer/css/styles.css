@@ -1751,6 +1751,18 @@ kbd {
   display: grid;
   place-items: center;
 }
+.lib-error .error-code {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 .error-text {
   color: var(--danger) !important;
 }

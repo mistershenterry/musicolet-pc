@@ -52,4 +52,13 @@ Only MP3 files can be written. This edits tags in the user's music files, so say
   no tag editing, no Go to folder / Show in Explorer. In the Folders tab they all appear in a virtual "Downloaded Songs"
   folder (`DOWNLOADS_FOLDER` in store.js), never opened in Explorer. Their album group comes from the song file in
   the Song Library (`TXXX:MUSICOLET_ALBUM_GROUP`, set before pushing it) and can't be changed in the app.
+- **Suggestions and the shared download queue** live on the Song Library server (the Hub: a Durable Object in the
+  songs repository's `worker/src/hub.js`). Song Library → Suggest a song sends a link (YouTube, YouTube Music or
+  SoundCloud), artist and title; the server groups duplicates. Every download first asks the server for a slot
+  (`queue/join`, then `queue/poll` every 10 s, `queue/done`); when the shared limit is reached it waits in line and
+  the app shows its place. If the server can't be reached, downloads go ahead without a slot.
+- Online errors show a code (`src/main/errors.js`): **277** = no internet (no answer at all), **-1** = the server
+  answered with an error ("Song Library is down. Check in tomorrow!", e.g. Cloudflare's free daily requests are used
+  up; for updates "Update server is down"), **429** = the Song Library server's per-connection limit (its answer
+  carries `X-Musicolet-Limit`).
 - Only add songs to the songs repository when the user asks: every song there can be downloaded by anyone using the app.

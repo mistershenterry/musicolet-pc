@@ -98,3 +98,8 @@ function isTyping(e) {
   if (t.tagName === 'INPUT') return !['range', 'checkbox', 'radio', 'button', 'color'].includes(t.type);
   return t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable;
 }
+
+// An error message with its code (277 = no internet, -1 = the server is down), for toasts and status lines.
+function errorText(error, code) {
+  return code !== undefined && code !== null ? `${error} (error code ${code})` : error;
+}

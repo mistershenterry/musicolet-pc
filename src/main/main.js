@@ -143,11 +143,15 @@ function registerIpc() {
     try {
       return await downloads.catalog(force);
     } catch (err) {
-      return { songs: [], error: String(err?.message || err) };
+      // e.g. the catalog arrived broken: count it as the Song Library being down.
+      return { songs: [], failure: { code: -1, message: 'Song Library is down. Check in tomorrow!' }, error: String(err?.message || err) };
     }
   });
   ipcMain.handle('downloads:enqueue', (_e, id) => downloads.enqueue(id));
   ipcMain.handle('downloads:state', () => downloads.state());
+  // Song suggestions.
+  ipcMain.handle('suggest:status', () => downloads.suggestionStatus());
+  ipcMain.handle('suggest:send', (_e, data) => downloads.suggest(data));
 
   ipcMain.handle('shell:showInFolder', (_e, file) => shell.showItemInFolder(file));
 

@@ -514,17 +514,69 @@ const Dialogs = {
         idle: 'Checks for updates automatically.',
         checking: 'Checking for updates…',
         latest: 'You have the latest version ✓',
-        'check-failed': `Couldn't check for updates${s.error ? ` (${s.error})` : ''}.`,
+        'check-failed': s.error ? errorText(s.error, s.code) : "Couldn't check for updates.",
         available: `Version ${s.version} is available.`,
         downloading: `Downloading version ${s.version}… ${s.percent || 0}%`,
         installing: 'Installing… Musicolet PC will reopen in a moment.',
-        error: `Update failed${s.error ? `: ${s.error}` : ''}.`,
+        error: `Update failed${s.error ? `: ${errorText(s.error, s.code)}` : ''}`,
       }[s.state] || '';
       const label = Updates.label(s);
       btn.querySelector('span').textContent = label || 'Check for updates';
       btn.disabled = ['unsupported', 'checking', 'downloading', 'installing'].includes(s.state);
     });
     return section('Updates', h('div', { class: 'settings-row' }, h('div', {}, title, status), btn));
+  },
+
+  // Suggest a song for the Song Library: a link (YouTube, YouTube Music or SoundCloud), the artist and the title.
+  async suggestSong({ title = '' } = {}) {
+    const status = await api.suggestionStatus();
+    if (status.error) return toast(errorText(status.error, status.code), 6000);
+    if (!status.accepting) {
+      return Modal.open({
+        title: 'Suggest a song',
+        body: h('p', { class: 'confirm-text', text: "Song suggestions are closed right now. Try again another time!" }),
+        buttons: [{ label: 'OK', primary: true }],
+      });
+    }
+    const field = (label, input, hint) => h('label', { class: 'form-field' }, h('div', { text: label }), input, hint ? h('div', { class: 'muted small', text: hint }) : null);
+    const link = h('input', { class: 'input', type: 'url', placeholder: 'https://www.youtube.com/watch?v=…', spellcheck: 'false', autofocus: true });
+    const artist = h('input', { class: 'input', type: 'text', placeholder: 'Who made the song' });
+    const name = h('input', { class: 'input', type: 'text', placeholder: 'The song\'s name', value: title });
+    const error = h('div', { class: 'small error-text' });
+    // Same check as the server: only song links from these sites.
+    const okLink = (v) => {
+      try {
+        const u = new URL(v);
+        return /^https?:$/.test(u.protocol) && /^((www|m|music)\.)?youtube\.com$|^youtu\.be$|^((www|m|on)\.)?soundcloud\.com$/i.test(u.hostname);
+      } catch {
+        return false;
+      }
+    };
+    const send = async () => {
+      const data = { link: link.value.trim(), artist: artist.value.trim(), title: name.value.trim() };
+      error.textContent = '';
+      if (!okLink(data.link)) error.textContent = 'Paste a link to the song on YouTube, YouTube Music or SoundCloud.';
+      else if (!data.artist) error.textContent = 'Fill in the artist.';
+      else if (!data.title) error.textContent = 'Fill in the title.';
+      if (error.textContent) return false;
+      const res = await api.suggestSong(data);
+      if (!res.ok) {
+        error.textContent = res.error ? errorText(res.error, res.code) : "Couldn't send the suggestion. Try again.";
+        return false;
+      }
+      toast(res.duplicate ? `Thanks! Someone already suggested "${data.title}", so your request was added to theirs.` : `Thanks! "${data.title}" was sent as a suggestion.`, 6000);
+    };
+    Modal.open({
+      title: 'Suggest a song',
+      body: h('div', { class: 'form' },
+        h('p', { class: 'muted small', text: "Can't find a song? Suggest it, and it may be added to the Song Library." }),
+        field('Song link', link, 'From YouTube, YouTube Music or SoundCloud'),
+        field('Artist', artist),
+        field('Title', name),
+        error,
+      ),
+      buttons: [{ label: 'Cancel' }, { label: 'Send suggestion', primary: true, action: send }],
+    });
   },
 
   discordSection(section) {
