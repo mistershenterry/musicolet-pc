@@ -267,4 +267,5 @@ Built with [Electron](https://www.electronjs.org/), [electron-updater](https://w
 
 ## License
 
-MIT
+Musicolet PC is licensed under the [GNU Lesser General Public License v3.0](LICENSE) (LGPL-3.0). It builds on the
+[GNU General Public License v3.0](COPYING), included as well.
