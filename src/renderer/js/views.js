@@ -984,6 +984,8 @@ const Views = {
 
     const message = (title, text, extra) => h('div', { class: 'lib-message' }, h('div', { class: 'lib-message-icon', html: icon('libraryMusic', 40) }), h('h3', { text: title }), h('p', { class: 'muted', text }), extra || null);
 
+    const isLossless = (s) => /\.wav$/i.test(String(s.file || ''));
+    let anyLossless = false;
     const row = (s) => {
       const state = s.downloaded ? 'downloaded' : SongDownloads.queue.some((q) => q.id === s.id) ? 'queued' : 'ready';
       const r = h('div', { class: 'lib-row ' + state, tabindex: '0', title: state === 'ready' ? 'Click to download' : '' },
@@ -994,6 +996,9 @@ const Views = {
         ),
         h('span', { class: 'muted small lib-len', text: s.duration ? fmtTime(s.duration) : '' }),
         h('span', { class: 'lib-state', html: state === 'downloaded' ? icon('check', 18) + '<span>Downloaded</span>' : state === 'queued' ? '<span>In queue…</span>' : icon('cloudDownload', 18) + '<span>Download</span>' }),
+        // WAV songs get a green "Lossless" tag at the right end. The slot is kept on every row (only while the
+        // Song Library has a WAV song at all) so the other columns stay lined up.
+        anyLossless ? h('span', { class: 'lib-quality' }, isLossless(s) ? h('span', { class: 'lossless-tag', text: 'Lossless', title: 'WAV: lossless audio' }) : null) : null,
       );
       const start = async () => {
         if (state !== 'ready') return;
@@ -1083,6 +1088,7 @@ const Views = {
       }
       const res = await api.songCatalog(force);
       songs = sortLikeExplorer(res.songs);
+      anyLossless = songs.some(isLossless);
       error = res.error || null;
       failure = res.failure || null;
       fillFilters();
@@ -1101,6 +1107,7 @@ const Views = {
     // Rows update when a download starts or finishes.
     this.cleanups.push(SongDownloads.subscribe(() => songs && api.songCatalog(false).then((res) => {
       songs = sortLikeExplorer(res.songs);
+      anyLossless = songs.some(isLossless);
       draw();
     })));
     draw();

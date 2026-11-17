@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('api', {
   checkForUpdate: () => ipcRenderer.invoke('update:check'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
   onUpdateState: (cb) => ipcRenderer.on('update:state', (_e, state) => cb(state)),
+  onNavigate: (cb) => ipcRenderer.on('app:navigate', (_e, where) => cb(where)),
 
   bulletinGet: () => ipcRenderer.invoke('bulletin:get'),
   bulletinCheck: () => ipcRenderer.invoke('bulletin:check'),

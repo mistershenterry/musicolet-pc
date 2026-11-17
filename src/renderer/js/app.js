@@ -17,6 +17,12 @@ const App = {
     Updates.init();
     BulletinBoard.init();
     SongDownloads.init();
+    // Clicking a Windows notification: "The Song Library has updated!" opens it, "There is an update available!"
+    // shows the update prompt.
+    api.onNavigate((where) => {
+      if (where === 'library') Views.go('library');
+      else if (where === 'update') Updates.onButton();
+    });
 
     const q = Store.activeQueue();
     if (q.items.length) Player.load(false, q.position || 0);

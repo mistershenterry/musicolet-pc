@@ -1703,6 +1703,28 @@ kbd {
   color: var(--text-2);
   font-size: 13px;
 }
+/* "Lossless" tag for WAV songs, at the right end of the row. */
+.lib-quality {
+  width: 72px;
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.lossless-tag {
+  --lossless: #3ddc84;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--lossless);
+  background: color-mix(in srgb, var(--lossless) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lossless) 45%, transparent);
+  white-space: nowrap;
+}
+:root[data-theme='light'] .lossless-tag {
+  --lossless: #15803d;
+}
 .lib-row.downloaded .lib-state {
   color: var(--accent-text);
 }

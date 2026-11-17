@@ -61,4 +61,7 @@ Only MP3 files can be written. This edits tags in the user's music files, so say
   answered with an error ("Song Library is down. Check in tomorrow!", e.g. Cloudflare's free daily requests are used
   up; for updates "Update server is down"), **429** = the Song Library server's per-connection limit (its answer
   carries `X-Musicolet-Limit`).
+- WAV songs show a green "Lossless" tag in the Song Library. Windows notifications (`notify` in `src/main/main.js`):
+  "The Song Library has updated!" when new song ids appear (`watchCatalog`/`noteSongs` in downloads.js, every
+  30 min; `MUSICOLET_PC_CATALOG_CHECK` shortens it for testing) and "There is an update available!" once per version.
 - Only add songs to the songs repository when the user asks: every song there can be downloaded by anyone using the app.

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Library, trackId } = require('./library');
@@ -234,6 +234,25 @@ if (!gotLock) {
   // Lets Windows group the taskbar button and pinned shortcut under our own icon instead of Electron's.
   if (process.platform === 'win32') app.setAppUserModelId('com.mistershenterry.musicoletpc');
 
+  // A small Windows notification. Clicking it brings the app to the front and opens `go` ('library' or 'update').
+  // Shown notifications are kept referenced until they close, or Windows' click would reach a collected object.
+  const shownNotes = new Set();
+  const notify = (title, body, go) => {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title, body, icon: path.join(__dirname, '..', 'assets', 'icon.png') });
+    shownNotes.add(n);
+    n.on('click', () => {
+      shownNotes.delete(n);
+      if (!win || win.isDestroyed()) return;
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+      win.webContents.send('app:navigate', go);
+    });
+    n.on('close', () => shownNotes.delete(n));
+    n.show();
+  };
+
   app.whenReady().then(() => {
     library = new Library(app.getPath('userData'));
     // Songs downloaded from the Song Library are stored encrypted in the library's vault (see vault.js).
@@ -253,9 +272,18 @@ if (!gotLock) {
     });
     registerIpc();
     createWindow();
+    let notifiedUpdate = null;
     updater.start((state) => {
       if (win && !win.isDestroyed()) win.webContents.send('update:state', state);
+      // Once per new version while the app is open.
+      if (state.state === 'available' && notifiedUpdate !== state.version) {
+        notifiedUpdate = state.version;
+        notify('There is an update available!', `Version ${state.version} is ready to install.`, 'update');
+      }
     });
+    downloads.watchCatalog((count) =>
+      notify('The Song Library has updated!', count === 1 ? '1 song available to download!' : `${count} songs available to download!`, 'library'),
+    );
     bulletin.start((state) => {
       if (win && !win.isDestroyed()) win.webContents.send('bulletin:state', state);
     });

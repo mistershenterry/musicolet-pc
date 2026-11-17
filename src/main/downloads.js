@@ -19,6 +19,11 @@ const HUB_POLL_MS = 10000;
 // Songs downloading at the same time on this PC, among those that have a slot.
 const MAX_PARALLEL = 3;
 const CATALOG_TTL = 5 * 60 * 1000;
+// Looking for new songs in the background (for the "The Song Library has updated!" notification). Every look is one
+// request to the Song Library server, so not too often.
+// MUSICOLET_PC_CATALOG_CHECK (milliseconds) shortens both for testing.
+const CATALOG_FIRST_CHECK = Number(process.env.MUSICOLET_PC_CATALOG_CHECK) || 60 * 1000;
+const CATALOG_CHECK_EVERY = Number(process.env.MUSICOLET_PC_CATALOG_CHECK) || 30 * 60 * 1000;
 const PROGRESS_EVERY_MS = 250;
 
 const encodePath = (rel) => String(rel).split('/').map(encodeURIComponent).join('/');
@@ -109,7 +114,39 @@ class Downloads {
     }
     const data = await res.json();
     this.cache = { at: Date.now(), songs: Array.isArray(data.songs) ? data.songs : [] };
+    this.added = this.noteSongs(this.cache.songs);
     return this.view();
+  }
+
+  // Remembers which songs the Song Library had, so new ones can be noticed. Returns how many are new since the
+  // last look (0 the very first time: there's nothing to compare with yet).
+  noteSongs(songs) {
+    const ids = songs.map((s) => s && s.id).filter(Boolean);
+    if (!ids.length) return 0;
+    const before = this.settings.seenSongs;
+    const known = new Set(before || []);
+    const added = before ? ids.filter((id) => !known.has(id)).length : 0;
+    if (!before || added || ids.length !== known.size) {
+      this.settings.seenSongs = ids;
+      this.saveSettings();
+    }
+    return added;
+  }
+
+  // Checks the Song Library now and then while the app is open and calls onNew(count) when songs were added.
+  // Songs already seen on the Song Library page don't count again.
+  watchCatalog(onNew) {
+    const check = async () => {
+      this.added = 0;
+      try {
+        await this.catalog(true);
+      } catch {
+        return;
+      }
+      if (this.added > 0) onNew(this.added);
+    };
+    setTimeout(check, CATALOG_FIRST_CHECK);
+    setInterval(check, CATALOG_CHECK_EVERY);
   }
 
   // Covers are served to the app by the mco://libcover/ protocol and cached on disk.
