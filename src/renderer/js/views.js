@@ -1062,6 +1062,9 @@ const Views = {
       error = res.error || null;
       failure = res.failure || null;
       draw();
+      // The page is rebuilt when the music library changes (e.g. a download finished). The songs only arrive now, so
+      // the scroll position saved before the rebuild is put back here instead of jumping to the top.
+      if (!force && v.scroll != null) listEl.scrollTop = v.scroll;
     };
 
     content.append(

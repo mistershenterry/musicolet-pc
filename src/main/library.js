@@ -74,9 +74,10 @@ function fmtLrcTime(ms) {
   return `${String(m).padStart(2, '0')}:${s}`;
 }
 
+// A song file often holds the same lyrics more than once (e.g. synced SYLT plus a plain USLT copy, or one per
+// language), so only one is used: the first synced one (with [mm:ss] times) if there is one, else the first one.
 function embeddedLyrics(common) {
-  const list = common.lyrics || [];
-  return list
+  const texts = (common.lyrics || [])
     .map((l) => {
       if (typeof l === 'string') return l;
       if (l.text) return l.text;
@@ -85,8 +86,8 @@ function embeddedLyrics(common) {
       }
       return '';
     })
-    .filter(Boolean)
-    .join('\n\n');
+    .filter((t) => t && t.trim());
+  return texts.find((t) => /^\s*\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\]/m.test(t)) || texts[0] || '';
 }
 
 const sidecarLrc = (file) => path.join(path.dirname(file), path.basename(file, path.extname(file)) + '.lrc');

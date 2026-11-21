@@ -232,7 +232,12 @@ if (!gotLock) {
   });
 
   // Lets Windows group the taskbar button and pinned shortcut under our own icon instead of Electron's.
-  if (process.platform === 'win32') app.setAppUserModelId('com.mistershenterry.musicoletpc');
+  // Runs from the source folder (`npm start`, tests) get their own id: when they show a notification, Electron adds an
+  // "Electron" Start Menu shortcut with Electron's icon for that id, and with the installed app's id Windows would then
+  // show Electron's icon on the installed app's taskbar button.
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.mistershenterry.musicoletpc' + (app.isPackaged ? '' : '.source'));
+  }
 
   // A small Windows notification. Clicking it brings the app to the front and opens `go` ('library' or 'update').
   // Shown notifications are kept referenced until they close, or Windows' click would reach a collected object.
