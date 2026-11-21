@@ -38,8 +38,11 @@ const App = {
 
   applyTheme() {
     const s = Store.state.settings;
-    document.documentElement.dataset.theme = s.theme;
-    document.documentElement.style.setProperty('--accent', s.accent);
+    const theme = THEMES.some((t) => t.id === s.theme) ? s.theme : 'dark';
+    document.documentElement.dataset.theme = theme;
+    // Starry Night brings its own moonlight accent; the other themes use the accent color from Settings.
+    document.documentElement.style.setProperty('--accent', theme === 'starry' ? STARRY_ACCENT : s.accent);
+    StarrySky.toggle(theme === 'starry');
   },
 
   async addFolder() {
@@ -161,6 +164,8 @@ const App = {
 
   updatePlayState() {
     $('#btn-play').innerHTML = icon(Player.playing ? 'pause' : 'play', 28);
+    // Starry Night spins the cover while a song plays.
+    document.documentElement.classList.toggle('is-playing', !!Player.playing);
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = Player.currentId ? (Player.playing ? 'playing' : 'paused') : 'none';
     this.npList?.refresh();
   },

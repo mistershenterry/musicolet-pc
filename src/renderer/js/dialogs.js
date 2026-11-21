@@ -391,6 +391,33 @@ const Dialogs = {
       App.applyTheme();
       Store.save();
     });
+    // Themes as little tiles; Starry Night's tile has a sparkle on its night sky. It brings its own accent color,
+    // so the accent picker is switched off while it's on.
+    const accentHint = h('div', { class: 'muted small', text: 'Starry Night uses its own colors.' });
+    const accentRow = h('label', { class: 'settings-row' }, h('div', {}, h('div', { text: 'Accent color' }), accentHint), accent);
+    const themePicker = h('div', { class: 'theme-picker', role: 'radiogroup', 'aria-label': 'Theme' });
+    const SPARKLE = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="#fff3c4" d="M12 2.5c.5 4.6 2.4 6.5 7 7-4.6.5-6.5 2.4-7 7-.5-4.6-2.4-6.5-7-7 4.6-.5 6.5-2.4 7-7z"/><circle cx="19" cy="18" r="1.3" fill="#fff"/><circle cx="5.5" cy="18.5" r="0.9" fill="#fff"/><circle cx="19.5" cy="4.5" r="0.8" fill="#fff"/></svg>';
+    const renderThemes = () => {
+      themePicker.replaceChildren(...THEMES.map((t) => {
+        const on = (s.theme || 'dark') === t.id;
+        const tile = h('button', { class: 'theme-tile' + (on ? ' active' : ''), type: 'button', role: 'radio', 'aria-checked': String(on), title: t.name },
+          h('span', { class: 'theme-swatch', style: `background:${t.swatch}`, html: t.sparkle ? SPARKLE : '' }),
+          h('span', { class: 'theme-name', text: t.name }),
+        );
+        tile.addEventListener('click', () => {
+          s.theme = t.id;
+          App.applyTheme();
+          Store.save();
+          renderThemes();
+        });
+        return tile;
+      }));
+      const starry = s.theme === 'starry';
+      accent.disabled = starry;
+      accentHint.hidden = !starry;
+      accentRow.classList.toggle('disabled', starry);
+    };
+    renderThemes();
     const prevSel = h('input', { class: 'input short', type: 'number', min: '0', max: '30', value: s.prevThreshold });
     prevSel.addEventListener('change', () => {
       s.prevThreshold = Math.max(0, parseInt(prevSel.value, 10) || 0);
@@ -429,12 +456,8 @@ const Dialogs = {
         h('div', { class: 'muted small', text: 'Tip: put an empty file named ".nomedia" in a folder to hide it from the library.' }),
       ),
       section('Appearance',
-        selectRow('Theme', s.theme, [['dark', 'Dark'], ['black', 'Black (AMOLED)'], ['light', 'Light']], (v) => {
-          s.theme = v;
-          App.applyTheme();
-          Store.save();
-        }),
-        h('label', { class: 'settings-row' }, h('div', { text: 'Accent color' }), accent),
+        h('div', { class: 'settings-row' }, h('div', { text: 'Theme' }), themePicker),
+        accentRow,
         h('label', { class: 'settings-row' }, h('div', { text: 'Lyrics text size' }), lyricSize),
       ),
       section('Playback',

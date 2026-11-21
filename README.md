@@ -27,7 +27,7 @@ Built to match what makes Musicolet great:
 | **Multi-select** | Click, Ctrl+click, Shift+click, Ctrl+A, **Invert selection**, then act on all selected songs at once. |
 | **Playback** | Speed control (0.5×–2×), repeat queue / repeat one, configurable previous button, resumes where you left off, media keys and the Windows media overlay. |
 | **Discord Rich Presence** | Optional "Listening to" status on your Discord profile with the song, artist, album cover and a live progress bar that switches to "Paused" when you pause. Off by default. |
-| **Themes** | Dark, Black (AMOLED) and Light, with any accent color. |
+| **Themes** | Dark, Black (AMOLED) and Light with any accent color, plus Starry Night: a night sky with twinkling and shooting stars. |
 
 Supported formats: **MP3, FLAC, OGG, Opus, M4A/AAC, WAV, WebM**.
 
@@ -162,7 +162,7 @@ Lines with timestamps like `[01:23.45]` are shown as synced lyrics.
 
 ### Song Library
 
-The **Song Library** tab lets you search for songs, filter them by artist or album, and download them with one click.
+The **Song Library** tab lets you search for songs by title, artist or album and download them with one click.
 While songs download, a **Downloads** item above Settings shows their progress. Downloaded songs can be played and
 deleted, but not edited, and they're stored encrypted so they only play in Musicolet PC.
 
@@ -263,7 +263,10 @@ src/
     js/        store (state), player (audio + EQ + sleep timer), views (tabs), dialogs, lyrics…
 ```
 
-Built with [Electron](https://www.electronjs.org/), [electron-updater](https://www.electron.build/auto-update), [music-metadata](https://github.com/Borewit/music-metadata), [node-id3](https://github.com/Zazama/node-id3) and [@xhayper/discord-rpc](https://github.com/xhayper/discord-rpc). Icons from Google's Material Icons (Apache 2.0).
+Built with [Electron](https://www.electronjs.org/), [electron-updater](https://www.electron.build/auto-update), [music-metadata](https://github.com/Borewit/music-metadata), [node-id3](https://github.com/Zazama/node-id3) and [@xhayper/discord-rpc](https://github.com/xhayper/discord-rpc). Icons from Google's Material Icons (Apache 2.0). The Starry Night theme is based on the
+[StarryNight Spicetify theme](https://github.com/b-chen00/spicetify-themes/tree/master/StarryNight) by b-chen00 (MIT),
+with shooting stars from [Pure CSS Shooting Star Animation Effect](https://codepen.io/delroyprithvi/pen/LYyJROR) by
+Delroy Prithvi (MIT; notice in `src/renderer/css/styles.css`).
 
 ## License
 

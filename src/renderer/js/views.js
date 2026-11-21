@@ -949,38 +949,10 @@ const Views = {
     const fileName = (s) => String(s.file || '').split('/').pop().replace(/\.[^.]+$/, '');
     const sortLikeExplorer = (list) => [...(list || [])].sort((a, b) => cmp(fileName(a), fileName(b)) || cmp(a.file, b.file));
     const listEl = h('div', { class: 'song-library scroll' });
-    const artistSel = h('select', { class: 'input lib-filter', title: 'Filter by artist' });
-    const albumSel = h('select', { class: 'input lib-filter', title: 'Filter by album' });
     let songs = null;
     let error = null;
-    v.filters ||= { artist: '', album: '' };
     v.page ||= 0;
     let lastSearch = null;
-
-    const fill = (sel, label, values, current) => {
-      sel.innerHTML = '';
-      sel.append(h('option', { value: '', text: label }), ...values.map((x) => h('option', { value: x, text: x })));
-      sel.value = values.includes(current) ? current : '';
-    };
-    const fillFilters = () => {
-      const artists = [...new Set(songs.map((s) => s.artist).filter(Boolean))].sort(cmp);
-      fill(artistSel, 'All artists', artists, v.filters.artist);
-      v.filters.artist = artistSel.value;
-      // Only the albums of the chosen artist.
-      const albums = [...new Set(songs.filter((s) => !v.filters.artist || s.artist === v.filters.artist).map((s) => s.album).filter(Boolean))].sort(cmp);
-      fill(albumSel, 'All albums', albums, v.filters.album);
-      v.filters.album = albumSel.value;
-    };
-    artistSel.addEventListener('change', () => {
-      v.filters.artist = artistSel.value;
-      v.filters.album = '';
-      fillFilters();
-      draw();
-    });
-    albumSel.addEventListener('change', () => {
-      v.filters.album = albumSel.value;
-      draw();
-    });
 
     const message = (title, text, extra) => h('div', { class: 'lib-message' }, h('div', { class: 'lib-message-icon', html: icon('libraryMusic', 40) }), h('h3', { text: title }), h('p', { class: 'muted', text }), extra || null);
 
@@ -1038,20 +1010,18 @@ const Views = {
       }
       const words = this.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
       const shown = songs.filter((s) => {
-        if (v.filters.artist && s.artist !== v.filters.artist) return false;
-        if (v.filters.album && s.album !== v.filters.album) return false;
         const hay = `${s.title} ${s.artist} ${s.album}`.toLowerCase();
         return words.every((w) => hay.includes(w));
       });
       if (!shown.length) {
-        const what = [this.query.trim() && `"${this.query.trim()}"`, v.filters.artist && `by ${v.filters.artist}`, v.filters.album && `on ${v.filters.album}`].filter(Boolean).join(' ');
+        const what = this.query.trim() && `"${this.query.trim()}"`;
         listEl.append(message("Couldn't find that song", `There's nothing ${what || 'like that'} in the Song Library. Check the spelling, or suggest the song so it can be added.`,
           textBtn('Suggest a song', () => Dialogs.suggestSong({ title: this.query.trim() }), { iconName: 'add', primary: true })));
         return;
       }
       // Big libraries are split into pages of 500 songs so the list stays fast.
-      // A new search or filter starts again on the first page.
-      const search = `${words.join(' ')}|${v.filters.artist}|${v.filters.album}`;
+      // A new search starts again on the first page.
+      const search = words.join(' ');
       if (lastSearch !== null && search !== lastSearch) v.page = 0;
       lastSearch = search;
       const pages = Math.ceil(shown.length / LIBRARY_PAGE_SIZE);
@@ -1091,7 +1061,6 @@ const Views = {
       anyLossless = songs.some(isLossless);
       error = res.error || null;
       failure = res.failure || null;
-      fillFilters();
       draw();
     };
 
@@ -1100,7 +1069,7 @@ const Views = {
         title: 'Song Library',
         subtitle: 'Search for a song and click it to download',
         onSearch: draw,
-        actions: [artistSel, albumSel, textBtn('Suggest a song', () => Dialogs.suggestSong({ title: this.query.trim() }), { iconName: 'add' }), iconBtn('refresh', 'Refresh the Song Library', () => load(true))],
+        actions: [textBtn('Suggest a song', () => Dialogs.suggestSong({ title: this.query.trim() }), { iconName: 'add' }), iconBtn('refresh', 'Refresh the Song Library', () => load(true))],
       }),
       h('div', { class: 'view-body' }, listEl),
     );
