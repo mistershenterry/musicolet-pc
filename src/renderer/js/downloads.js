@@ -9,10 +9,17 @@ const SongDownloads = {
     this.btn.addEventListener('click', () => Views.go('downloads'));
     api.onDownloads((q) => this.onQueue(q));
     api.downloadQueue().then((q) => this.onQueue(q));
-    api.onDownloadDone(({ title, artist, library }) => {
+    api.onDownloadDone(({ title, artist, library, updated }) => {
       Store.setLibrary(library);
-      toast(`Downloaded "${title}"${artist ? ` by ${artist}` : ''}`);
+      // Updates to the Song Library's newer version are announced once for all of them (onDownloadSync).
+      if (!updated) toast(`Downloaded "${title}"${artist ? ` by ${artist}` : ''}`);
       this.changed();
+    });
+    // Downloaded songs that changed in the Song Library (e.g. lyrics added, a different album) are downloaded again.
+    api.onDownloadSync(({ state, count, done, failed }) => {
+      const songs = (n) => (n === 1 ? '1 downloaded song' : `${n} downloaded songs`);
+      if (state === 'start') toast(`The Song Library has newer versions of ${songs(count)}. Updating…`, 5000);
+      else if (done) toast(`Updated ${songs(done)} to the Song Library's newest version${failed ? ` (${failed} will be tried again later)` : ''}.`, 6000);
     });
     api.onDownloadFailed(({ title, error, code }) => {
       toast(`Couldn't download "${title}": ${errorText(error, code)}`, 6000);

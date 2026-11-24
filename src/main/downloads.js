@@ -19,6 +19,8 @@ const HUB_POLL_MS = 10000;
 // Songs downloading at the same time on this PC, among those that have a slot.
 const MAX_PARALLEL = 3;
 const CATALOG_TTL = 5 * 60 * 1000;
+// Downloaded songs being updated to the Song Library's newer version at the same time (see syncDownloaded).
+const UPDATES_AT_ONCE = 5;
 // Looking for new songs in the background (for the "The Song Library has updated!" notification). Every look is one
 // request to the Song Library server, so not too often.
 // MUSICOLET_PC_CATALOG_CHECK (milliseconds) shortens both for testing.
@@ -36,6 +38,9 @@ class Downloads {
     this.running = 0;
     this.pollTimer = null;
     this.cache = null;
+    this.updates = []; // downloaded songs waiting to be updated: { song, trackId }
+    this.sync = { total: 0, done: 0, failed: 0 };
+    this.syncing = false;
     this.coverDir = path.join(userDir, 'song-library-covers');
     fs.mkdirSync(this.coverDir, { recursive: true });
     this.settingsFile = path.join(userDir, 'song-library.json');
@@ -115,6 +120,8 @@ class Downloads {
     const data = await res.json();
     this.cache = { at: Date.now(), songs: Array.isArray(data.songs) ? data.songs : [] };
     this.added = this.noteSongs(this.cache.songs);
+    // The Song Library may have newer versions of songs that were downloaded before.
+    this.syncDownloaded().catch(() => {});
     return this.view();
   }
 
@@ -194,13 +201,23 @@ class Downloads {
     if (!song) return { ok: false, reason: 'not-found' };
     if (this.queue.some((q) => q.id === id)) return { ok: false, reason: 'queued' };
     if (this.library.downloadedIds().has(id)) return { ok: false, reason: 'downloaded' };
-    const item = { ...song, coverUrl: this.coverUrl(song), received: 0, status: 'joining', ticket: null, position: 0 };
+    return this.addToQueue(song);
+  }
+
+  // replaces: id of a downloaded song this download updates in place (see syncDownloaded).
+  async addToQueue(song, replaces = null) {
+    const item = { ...song, coverUrl: this.coverUrl(song), received: 0, status: 'joining', ticket: null, position: 0, replaces };
     this.queue.push(item);
     this.emit();
     const res = await this.join(item);
     if (res.error) {
       this.queue = this.queue.filter((q) => q !== item);
       this.emit();
+      if (replaces) {
+        // The server's queue is too long right now: this update is tried again next time.
+        this.sync.failed++;
+        this.feedUpdates();
+      }
       return { ok: false, reason: 'busy', error: res.error };
     }
     this.pump();
@@ -289,11 +306,22 @@ class Downloads {
         }
       }
       if (item.size && item.received !== item.size) throw new Error('the download was cut off');
-      const lib = await this.library.addDownloaded(item, Buffer.concat(chunks));
-      this.send('downloads:done', { title: item.title, artist: item.artist, library: lib });
+      if (item.replaces) {
+        const lib = await this.library.replaceDownloaded(item.replaces, item, Buffer.concat(chunks));
+        this.sync.done++;
+        this.send('downloads:done', { title: item.title, artist: item.artist, library: lib, updated: true });
+      } else {
+        const lib = await this.library.addDownloaded(item, Buffer.concat(chunks));
+        this.send('downloads:done', { title: item.title, artist: item.artist, library: lib });
+      }
     } catch (err) {
-      const failed = err?.failure || (isNetworkError(err) ? songLibraryOffline() : null);
-      this.send('downloads:failed', { title: item.title, error: failed ? failed.message : String(err?.message || err), code: failed?.code });
+      if (item.replaces) {
+        // Updates are quiet: one that failed is simply tried again the next time the Song Library is checked.
+        this.sync.failed++;
+      } else {
+        const failed = err?.failure || (isNetworkError(err) ? songLibraryOffline() : null);
+        this.send('downloads:failed', { title: item.title, error: failed ? failed.message : String(err?.message || err), code: failed?.code });
+      }
     } finally {
       // Finished (or failed) songs leave the download queue right away.
       this.queue = this.queue.filter((q) => q !== item);
@@ -301,7 +329,50 @@ class Downloads {
       // Free the slot for the next song in everyone's queue.
       if (item.ticket) this.hub('queue/done', { tickets: [item.ticket] });
       this.emit();
+      this.feedUpdates();
       this.pump();
+    }
+  }
+
+  // ---------- keeping downloaded songs up to date ----------
+  // After each fresh look at the Song Library: downloaded songs whose file differs from the Song Library's current
+  // version (e.g. lyrics added, a different album or contributing artists) are downloaded again, in place.
+  // Compared by fingerprint (the catalog's `sha`); catalogs without fingerprints are skipped.
+  async syncDownloaded() {
+    if (this.syncing || !this.cache) return;
+    const current = new Map(this.cache.songs.filter((s) => s.id && s.sha).map((s) => [s.id, s]));
+    if (!current.size) return;
+    this.syncing = true;
+    try {
+      const stale = [];
+      for (const t of this.library.downloadedTracks()) {
+        const song = current.get(t.catalogId);
+        if (!song || this.queue.some((q) => q.id === song.id) || this.updates.some((u) => u.song.id === song.id)) continue;
+        const sha = this.library.downloadedSha(t);
+        if (sha && sha !== song.sha) stale.push({ song, trackId: t.id });
+        await new Promise((r) => setImmediate(r)); // songs without a fingerprint yet are decrypted one by one
+      }
+      if (!stale.length) return;
+      if (!this.updates.length && !this.queue.some((q) => q.replaces)) this.sync = { total: 0, done: 0, failed: 0 };
+      this.sync.total += stale.length;
+      this.updates.push(...stale);
+      this.send('downloads:sync', { state: 'start', count: stale.length });
+      this.feedUpdates();
+    } finally {
+      this.syncing = false;
+    }
+  }
+
+  // Updates join the download queue a few at a time, so they never take more than a few of the shared queue's slots
+  // (or this connection's ticket limit on the server).
+  feedUpdates() {
+    while (this.updates.length && this.queue.filter((q) => q.replaces).length < UPDATES_AT_ONCE) {
+      const { song, trackId } = this.updates.shift();
+      this.addToQueue(song, trackId);
+    }
+    if (!this.updates.length && !this.queue.some((q) => q.replaces) && this.sync.total) {
+      this.send('downloads:sync', { state: 'done', ...this.sync });
+      this.sync = { total: 0, done: 0, failed: 0 };
     }
   }
 }

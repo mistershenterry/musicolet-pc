@@ -40,6 +40,8 @@ const mm = () => (mmPromise ||= import('music-metadata'));
 
 const norm = (p) => (IS_WIN ? path.resolve(p).toLowerCase() : path.resolve(p));
 const hash = (s, n = 16) => crypto.createHash('sha1').update(s).digest('hex').slice(0, n);
+// Fingerprint of a Song Library file, the same way the songs repository's catalog makes it (scripts/build-catalog.mjs).
+const songSha = (buf) => crypto.createHash('sha1').update(buf).digest('hex').slice(0, 16);
 const trackId = (file) => hash(norm(file));
 
 function writeJsonAtomic(file, data) {
@@ -150,6 +152,47 @@ class Library {
   // A song downloaded from the Song Library: read its tags from memory, then store it encrypted in the vault.
   // `song` is the catalog entry (its title/artist/album are used when the file has no tags).
   async addDownloaded(song, plain) {
+    const { file, iv } = this.vault.store(plain);
+    const t = { id: trackId(file), path: file, dir: path.dirname(file), iv, addedAt: Date.now() };
+    await this.readDownloaded(t, song, plain);
+    this.data.tracks[t.id] = t;
+    this.save();
+    return this.get();
+  }
+
+  // A newer version of a downloaded song (the Song Library's file changed, e.g. lyrics added or a different album):
+  // it replaces the old one in place, so the song keeps its id, play counts, playlists and queue spots.
+  async replaceDownloaded(id, song, plain) {
+    const t = this.data.tracks[id];
+    if (!t || !this.vault.contains(t.path)) throw new Error('the old download is gone');
+    t.iv = this.vault.replace(t.path, plain);
+    await this.readDownloaded(t, song, plain);
+    this.save();
+    return this.get();
+  }
+
+  // Songs downloaded from the Song Library.
+  downloadedTracks() {
+    return Object.values(this.data.tracks).filter((t) => t.catalogId && this.vault.contains(t.path));
+  }
+
+  // Fingerprint of a downloaded song as the Song Library has it (see the catalog's `sha`). Songs downloaded before
+  // fingerprints existed get theirs once, from the decrypted file in memory.
+  downloadedSha(t) {
+    if (!t.sha) {
+      try {
+        t.sha = songSha(this.vault.readAll(t.path, t.iv));
+        this.save();
+      } catch {
+        return null;
+      }
+    }
+    return t.sha;
+  }
+
+  // Tags, cover and fingerprint of a downloaded song, read from its decrypted bytes. `song` is the catalog entry (its
+  // title/artist/album are used when the file has no tags).
+  async readDownloaded(t, song, plain) {
     const { parseBuffer } = await mm();
     const ext = path.extname(song.file).slice(1).toLowerCase();
     let meta = null;
@@ -159,16 +202,12 @@ class Library {
       meta = null;
     }
     const c = meta?.common || {};
-    const { file, iv } = this.vault.store(plain);
-    const st = fs.statSync(file);
+    const st = fs.statSync(t.path);
     const artists = c.artists?.length ? c.artists : c.artist ? [c.artist] : song.artist ? [song.artist] : [];
-    const t = {
-      id: trackId(file),
-      path: file,
-      dir: path.dirname(file),
+    Object.assign(t, {
       ext,
-      iv,
       catalogId: song.id,
+      sha: songSha(plain),
       title: c.title || song.title,
       artist: c.artist || artists.join(', '),
       artists,
@@ -186,14 +225,9 @@ class Library {
       codec: meta?.format?.codec || meta?.format?.container || '',
       mtime: st.mtimeMs,
       size: st.size,
-      addedAt: Date.now(),
-      cover: null,
-    };
+    });
     this.knownCovers = new Set(fs.readdirSync(this.coverDir));
     t.cover = await this.coverFor(t, c.picture?.[0], false);
-    this.data.tracks[t.id] = t;
-    this.save();
-    return this.get();
   }
 
   // Catalog ids of songs already downloaded (so the Song Library can mark them).

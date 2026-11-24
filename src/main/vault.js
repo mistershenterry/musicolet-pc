@@ -71,6 +71,22 @@ class Vault {
     return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
   }
 
+  // Put a newer version of a downloaded song in place of the old one, under the same file name (so the library entry,
+  // and with it play counts, playlists and queues, stays the same). Returns its new IV.
+  replace(file, plain) {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(ALGO, this.key, iv);
+    const tmp = file + '.new';
+    fs.writeFileSync(tmp, Buffer.concat([cipher.update(plain), cipher.final()]));
+    try {
+      fs.renameSync(tmp, file);
+    } catch (err) {
+      fs.rmSync(tmp, { force: true });
+      throw err;
+    }
+    return iv.toString('hex');
+  }
+
   // Encrypt a downloaded song into the vault. Returns where it went and its IV (kept with the library entry).
   store(plain) {
     const iv = crypto.randomBytes(16);

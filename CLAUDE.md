@@ -64,4 +64,8 @@ Only MP3 files can be written. This edits tags in the user's music files, so say
 - WAV songs show a green "Lossless" tag in the Song Library. Windows notifications (`notify` in `src/main/main.js`):
   "The Song Library has updated!" when new song ids appear (`watchCatalog`/`noteSongs` in downloads.js, every
   30 min; `MUSICOLET_PC_CATALOG_CHECK` shortens it for testing) and "There is an update available!" once per version.
+- Downloaded songs follow the Song Library: the catalog has a fingerprint per song (`sha`, first 16 hex of SHA-1,
+  `scripts/build-catalog.mjs` in the songs repository); after every fresh catalog fetch `syncDownloaded()` compares it
+  with each download's `t.sha` (computed once from the vault for older downloads) and re-downloads changed songs in
+  place (`library.replaceDownloaded`, `vault.replace`: same file and track id), at most `UPDATES_AT_ONCE` at a time.
 - Only add songs to the songs repository when the user asks: every song there can be downloaded by anyone using the app.

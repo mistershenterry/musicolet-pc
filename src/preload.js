@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('api', {
   onDownloads: (cb) => ipcRenderer.on('downloads:update', (_e, queue) => cb(queue)),
   onDownloadDone: (cb) => ipcRenderer.on('downloads:done', (_e, info) => cb(info)),
   onDownloadFailed: (cb) => ipcRenderer.on('downloads:failed', (_e, info) => cb(info)),
+  onDownloadSync: (cb) => ipcRenderer.on('downloads:sync', (_e, info) => cb(info)),
   suggestionStatus: () => ipcRenderer.invoke('suggest:status'),
   suggestSong: (data) => ipcRenderer.invoke('suggest:send', data),
 
