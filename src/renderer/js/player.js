@@ -95,6 +95,7 @@ const Player = {
     try {
       const ctx = new AudioContext();
       const src = ctx.createMediaElementSource(this.audio);
+      this.src = src;
       this.preamp = ctx.createGain();
       this.filters = EQ_BANDS.map((freq, i) => {
         const f = ctx.createBiquadFilter();
@@ -104,10 +105,24 @@ const Player = {
         return f;
       });
       this.master = ctx.createGain();
-      let node = src.connect(this.preamp);
+      src.connect(this.preamp);
+      let node = this.preamp;
       for (const f of this.filters) node = node.connect(f);
       node.connect(this.master).connect(ctx.destination);
       this.ctx = ctx;
+      // Pitch shifter (js/pitch-worklet.js), put between the song and the equalizer only while it's needed.
+      ctx.audioWorklet
+        .addModule('js/pitch-worklet.js')
+        .then(() => {
+          this.shifter = new AudioWorkletNode(ctx, 'pitch-shifter', {
+            outputChannelCount: [2],
+            channelCount: 2,
+            channelCountMode: 'explicit',
+            channelInterpretation: 'speakers',
+          });
+          this.setShift(this._shift ?? 1);
+        })
+        .catch((err) => console.warn('Pitch shifter unavailable:', err));
       this.audio.volume = 1;
       this.applyEq();
       this.applyVolume();
@@ -141,12 +156,63 @@ const Player = {
     Store.save();
     this.emit('volume');
   },
-  setSpeed(r) {
-    this.s.speed = r;
-    this.audio.defaultPlaybackRate = r;
-    this.audio.playbackRate = r;
-    Store.save();
+  // ---------- play speed & pitch ----------
+  // Saved as settings.speed / settings.pitch / settings.linkPitch, or per song in settings.songRates[trackId]
+  // (same fields; a song with its own entry ignores the general one). linkPitch = the pitch follows the speed.
+  rateOf(id = this.currentId) {
+    const own = id ? this.s.songRates?.[id] : null;
+    const r = own || this.s;
+    const speed = r.speed || 1;
+    return { speed, pitch: r.linkPitch ? speed : r.pitch || 1, rawPitch: r.pitch || 1, linkPitch: !!r.linkPitch, own: !!own };
+  },
+  // Speed comes from the <audio> element: with preservesPitch it stretches time and keeps the pitch, without it
+  // the pitch moves with the speed (like a record played faster). Whatever pitch change is left over is done by
+  // the pitch shifter; pick the way that leaves it the least to do (none at all when pitch = 1 or pitch = speed).
+  applyRate() {
+    const { speed, pitch } = this.rateOf();
+    const a = this.audio;
+    const viaRate = Math.abs(Math.log(pitch / speed)) < Math.abs(Math.log(pitch));
+    a.preservesPitch = !viaRate;
+    a.defaultPlaybackRate = speed;
+    a.playbackRate = speed;
+    const shift = viaRate ? pitch / speed : pitch;
+    this.setShift(Math.abs(shift - 1) < 1e-4 ? 1 : shift);
     this.emit('speed');
+  },
+  setShift(ratio) {
+    this._shift = ratio;
+    if (ratio !== 1) this.ensureGraph();
+    if (!this.ctx || !this.src) return;
+    const on = ratio !== 1 && !!this.shifter;
+    if (on) this.shifter.parameters.get('ratio').value = ratio;
+    if (on === !!this._shifterOn) return;
+    this.src.disconnect();
+    if (this.shifter) this.shifter.disconnect();
+    if (on) this.src.connect(this.shifter).connect(this.preamp);
+    else this.src.connect(this.preamp);
+    this._shifterOn = on;
+  },
+  // Change speed/pitch/linkPitch of whatever the current song uses (its own setting or the general one).
+  setRate(patch) {
+    const id = this.currentId;
+    Object.assign((id && this.s.songRates?.[id]) || this.s, patch);
+    this.applyRate();
+    Store.save();
+  },
+  setSpeed(r) {
+    this.setRate({ speed: r });
+  },
+  // Give the current song its own speed & pitch (starting from the general one), or drop it again.
+  setOwnRate(on) {
+    const id = this.currentId;
+    if (!id) return;
+    const songRates = (this.s.songRates ||= {});
+    if (on) {
+      const { speed, rawPitch, linkPitch } = this.rateOf();
+      songRates[id] = { speed, pitch: rawPitch, linkPitch };
+    } else delete songRates[id];
+    this.applyRate();
+    Store.save();
   },
   cycleRepeat() {
     const order = ['all', 'one', 'off'];
@@ -175,8 +241,7 @@ const Player = {
     this.pendingSeek = position > 0 ? position : null;
     q.position = position;
     a.src = api.mediaUrl(t.path);
-    a.defaultPlaybackRate = this.s.speed;
-    a.playbackRate = this.s.speed;
+    this.applyRate();
     this.emit('track');
     this.updateMediaSession();
     if (autoplay) this.play();

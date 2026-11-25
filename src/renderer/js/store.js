@@ -24,6 +24,10 @@ function defaultState() {
       volume: 0.8,
       muted: false,
       speed: 1,
+      pitch: 1,
+      linkPitch: false,
+      rateMode: 'simple', // simple | advanced (Play speed & pitch window)
+      songRates: {}, // trackId -> { speed, pitch, linkPitch }: songs with their own speed & pitch
       repeat: 'all', // off | all | one
       clickAction: 'replace', // replace | newqueue | next | append
       prevThreshold: 3,

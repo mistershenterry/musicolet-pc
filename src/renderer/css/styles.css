@@ -1968,3 +1968,53 @@ kbd {
     animation: none;
   }
 }
+
+/* ---------- play speed & pitch ---------- */
+.rate {
+  width: min(440px, 100%);
+}
+.rate .segmented {
+  align-self: flex-start;
+}
+.rate-own-text {
+  min-width: 0;
+}
+.rate-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0 8px;
+}
+.rate-head {
+  font-weight: 600;
+}
+.rate-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+}
+.rate-range {
+  width: 100%;
+}
+input.rate-range::-webkit-slider-thumb {
+  opacity: 1;
+}
+.rate-num {
+  width: 96px;
+  font-variant-numeric: tabular-nums;
+}
+.rate-step {
+  min-width: 30px;
+  font-size: 15px;
+  padding: 2px 10px;
+}
+.rate-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rate-section.disabled {
+  opacity: 0.45;
+}
+.rate [hidden] {
+  display: none !important;
+}

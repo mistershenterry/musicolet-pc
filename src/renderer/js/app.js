@@ -102,9 +102,11 @@ const App = {
     $('#btn-repeat').addEventListener('click', () => Player.cycleRepeat());
     $('#btn-eq').addEventListener('click', () => Dialogs.equalizer());
     $('#btn-sleep').addEventListener('click', () => Dialogs.sleepTimer());
-    $('#btn-speed').addEventListener('click', (e) => {
+    $('#btn-speed').addEventListener('click', () => Dialogs.playSpeed());
+    $('#btn-speed').addEventListener('contextmenu', (e) => {
+      e.preventDefault();
       const r = e.currentTarget.getBoundingClientRect();
-      Dialogs.speedMenu(r.left, r.top - 330);
+      Dialogs.speedMenu(r.left, r.top - 380);
     });
     $('#btn-mute').addEventListener('click', () => Player.toggleMute());
     $('#btn-settings').addEventListener('click', () => Dialogs.settings());
@@ -187,10 +189,17 @@ const App = {
   },
 
   updateSpeed() {
-    const s = Store.state.settings.speed;
+    const r = Player.rateOf();
     const b = $('#btn-speed');
-    b.textContent = (Number.isInteger(s) ? s.toFixed(1) : String(s)) + '×';
-    b.classList.toggle('on', s !== 1);
+    const st = 12 * Math.log2(r.pitch);
+    const pitched = Math.abs(st) >= 0.005;
+    b.textContent = fmtRate(r.speed) + '×' + (pitched && !r.linkPitch ? ' ♪' : '');
+    b.classList.toggle('on', r.speed !== 1 || pitched);
+    b.title =
+      `Play speed & pitch: ${fmtRate(r.speed)}×` +
+      (pitched ? `, pitch ${st > 0 ? '+' : ''}${Math.round(st * 100) / 100} semitones` : '') +
+      (r.own ? ' (this song only)' : '') +
+      '\nRight-click for quick speeds';
   },
 
   updateSleep() {

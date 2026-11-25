@@ -14,6 +14,14 @@ Electron music player. Main process in `src/main/`, UI in `src/renderer/` (plain
   `src/main/bulletin.js`). Editing it is not an app change: don't bump the version for board-only edits.
 - Commit trailer: use `Contributed-To-By: Claude <model> <noreply@anthropic.com>` instead of `Co-Authored-By`.
 
+## Play speed & pitch
+
+Speed button in the player bar → Play speed & pitch (`Dialogs.playSpeed`; right-click = quick speeds). Saved as
+`settings.speed/pitch/linkPitch`, or per song in `settings.songRates[trackId]` (`Player.rateOf`). `Player.applyRate` sets the
+<audio> playbackRate (preservesPitch on = speed without pitch change, off = pitch follows speed) and sends any pitch
+change left over through the AudioWorklet pitch shifter `src/renderer/js/pitch-worklet.js`, which is only in the audio
+graph while it is needed.
+
 ## Separating albums (album groups): how to do it from a prompt
 
 Songs are grouped into albums by album name (+ album artist, or folder when there's none). Unrelated songs that happen

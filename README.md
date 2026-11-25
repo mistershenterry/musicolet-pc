@@ -25,7 +25,7 @@ Built to match what makes Musicolet great:
 | **Playlists** | Your own playlists plus automatic ones: Favorites, Recently added, Most played, Recently played, Never played. Import and export `.m3u` / `.m3u8`. |
 | **Quick search & sorting** | Every list has a search box and sort options (title, artist, album, year, duration, date added, file name, play count…). |
 | **Multi-select** | Click, Ctrl+click, Shift+click, Ctrl+A, **Invert selection**, then act on all selected songs at once. |
-| **Playback** | Speed control (0.5×–2×), repeat queue / repeat one, configurable previous button, resumes where you left off, media keys and the Windows media overlay. |
+| **Playback** | Play speed (0.25×–4×) and pitch (±12 semitones), separately or together, also per song, repeat queue / repeat one, configurable previous button, resumes where you left off, media keys and the Windows media overlay. |
 | **Discord Rich Presence** | Optional "Listening to" status on your Discord profile with the song, artist, album cover and a live progress bar that switches to "Paused" when you pause. Off by default. |
 | **Themes** | Dark, Black (AMOLED) and Light with any accent color, plus Starry Night: a night sky with twinkling and shooting stars. |
 

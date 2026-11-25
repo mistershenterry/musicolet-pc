@@ -37,7 +37,7 @@ const Presence = {
       album: t.album,
       duration: isFinite(a.duration) ? a.duration : t.duration || 0,
       position: a.currentTime || 0,
-      speed: Store.state.settings.speed,
+      speed: Player.rateOf().speed,
       playing: Player.playing,
       showPaused: this.cfg.showPaused,
       lookupCovers: this.cfg.covers,

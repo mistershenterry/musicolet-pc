@@ -22,6 +22,12 @@ function h(tag, props = {}, ...children) {
   return el;
 }
 
+// 1 -> "1.0", 1.25 -> "1.25", 1.12246 -> "1.1225" (speeds and pitch ratios, up to 4 decimals).
+function fmtRate(x) {
+  const t = (Math.round(x * 10000) / 10000).toFixed(4).replace(/0+$/, '');
+  return t.endsWith('.') ? t + '0' : t;
+}
+
 function iconBtn(name, title, onClick, extraClass = '') {
   const b = h('button', { class: 'icon-btn ' + extraClass, title, html: icon(name) });
   if (onClick) b.addEventListener('click', onClick);

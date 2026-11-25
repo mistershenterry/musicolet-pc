@@ -344,13 +344,186 @@ const Dialogs = {
     });
   },
 
+  // Right-click on the speed button: quick speeds, plus the full window.
   speedMenu(x, y) {
     const rates = [0.5, 0.75, 0.85, 0.9, 1, 1.1, 1.15, 1.25, 1.5, 1.75, 2];
-    Menu.show(
-      x,
-      y,
-      rates.map((r) => ({ label: r.toFixed(2).replace(/0$/, '') + '×', checked: Store.state.settings.speed === r, action: () => Player.setSpeed(r) })),
+    const cur = Player.rateOf().speed;
+    Menu.show(x, y, [
+      ...rates.map((r) => ({ label: fmtRate(r) + '×', checked: cur === r, action: () => Player.setSpeed(r) })),
+      { sep: true },
+      { label: 'Play speed & pitch…', icon: 'settings', action: () => Dialogs.playSpeed() },
+    ]);
+  },
+
+  // ---------- play speed & pitch ----------
+  // Like Musicolet's "Play speed & Pitch": Simple (speed + presets) or Advanced (exact speed and pitch, up to
+  // 4 decimals, pitch also in semitones). Changes apply right away, to the general setting or, with
+  // "Only for this song", to the current song alone.
+  playSpeed() {
+    const s = Store.state.settings;
+    const SPEED_MIN = 0.25, SPEED_MAX = 4, PITCH_MIN = 0.5, PITCH_MAX = 2;
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const round4 = (v) => Math.round(v * 10000) / 10000;
+    const semis = (p) => 12 * Math.log2(p);
+    const fromSemis = (st) => Math.pow(2, st / 12);
+    const fmtSemis = (st) => (Math.abs(st) < 0.005 ? '0' : (st > 0 ? '+' : '−') + Math.abs(st).toFixed(2).replace(/\.?0+$/, ''));
+
+    const mode = h('div', { class: 'segmented small' });
+    const modeBtns = ['simple', 'advanced'].map((m) => {
+      const b = h('button', { text: m === 'simple' ? 'Simple' : 'Advanced' });
+      b.addEventListener('click', () => {
+        s.rateMode = m;
+        Store.save();
+        sync();
+      });
+      mode.append(b);
+      return b;
+    });
+
+    const track = Store.track(Player.currentId);
+    const own = h('input', { type: 'checkbox' });
+    own.addEventListener('change', () => {
+      Player.setOwnRate(own.checked);
+      sync();
+    });
+    const ownRow = track
+      ? h('label', { class: 'row gap center rate-own' },
+          h('label', { class: 'switch' }, own, h('span', { class: 'slider' })),
+          h('div', { class: 'rate-own-text' }, h('div', { text: 'Only for this song' }), h('div', { class: 'muted small ellipsis', text: track.title })),
+        )
+      : null;
+
+    const link = h('input', { type: 'checkbox' });
+    link.addEventListener('change', () => {
+      const r = Player.rateOf();
+      Player.setRate(link.checked ? { linkPitch: true } : { linkPitch: false, pitch: r.speed });
+      sync();
+    });
+    const linkRow = h('label', { class: 'row gap center' },
+      h('label', { class: 'switch' }, link, h('span', { class: 'slider' })),
+      h('div', {}, h('div', { text: 'Change pitch with speed' }), h('div', { class: 'muted small', text: 'Faster sounds higher, slower sounds lower, like a record.' })),
     );
+
+    const range = (min, max, step) => h('input', { type: 'range', class: 'rate-range', min, max, step });
+    const paint = (r) => App.paintRange(r);
+
+    // Simple: speed slider (0.5×–2×, logarithmic so 1× is in the middle) + presets.
+    const sVal = h('span', { class: 'rate-value' });
+    const sRange = range(-1, 1, 0.005);
+    sRange.addEventListener('input', () => {
+      Player.setRate({ speed: round4(Math.pow(2, parseFloat(sRange.value))) });
+      sync(sRange);
+    });
+    const presets = h('div', { class: 'row gap wrap rate-presets' },
+      ...[0.5, 0.75, 1, 1.25, 1.5, 2].map((v) => {
+        const b = h('button', { class: 'pill-btn', text: fmtRate(v) + '×' });
+        b.addEventListener('click', () => {
+          Player.setRate({ speed: v });
+          sync();
+        });
+        b.dataset.v = v;
+        return b;
+      }),
+    );
+    const sPitchNote = h('div', { class: 'muted small' });
+    const simple = h('div', { class: 'rate-section' },
+      h('div', { class: 'row center rate-head' }, h('span', { text: 'Speed' }), h('div', { class: 'spacer' }), sVal),
+      sRange,
+      presets,
+      sPitchNote,
+    );
+
+    // Advanced: exact numbers.
+    const numInput = (min, max, step) => h('input', { type: 'number', class: 'input rate-num', min, max, step });
+    const aSpeedRange = range(-2, 2, 0.001);
+    const aSpeed = numInput(SPEED_MIN, SPEED_MAX, 0.0001);
+    const aPitchRange = range(-12, 12, 0.01);
+    const aPitch = numInput(PITCH_MIN, PITCH_MAX, 0.0001);
+    const aSemis = numInput(-12, 12, 0.01);
+    const setSpeed = (v, from) => {
+      if (!isFinite(v)) return;
+      Player.setRate({ speed: round4(clamp(v, SPEED_MIN, SPEED_MAX)) });
+      sync(from);
+    };
+    const setPitch = (v, from) => {
+      if (!isFinite(v)) return;
+      Player.setRate({ pitch: round4(clamp(v, PITCH_MIN, PITCH_MAX)), linkPitch: false });
+      sync(from);
+    };
+    aSpeedRange.addEventListener('input', () => setSpeed(Math.pow(2, parseFloat(aSpeedRange.value)), aSpeedRange));
+    aSpeed.addEventListener('change', () => setSpeed(parseFloat(aSpeed.value)));
+    aPitchRange.addEventListener('input', () => setPitch(fromSemis(parseFloat(aPitchRange.value)), aPitchRange));
+    aPitch.addEventListener('change', () => setPitch(parseFloat(aPitch.value)));
+    aSemis.addEventListener('change', () => setPitch(fromSemis(parseFloat(aSemis.value))));
+    const stepBtn = (label, title, fn) => {
+      const b = h('button', { class: 'pill-btn rate-step', text: label, title });
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const speedRow = h('div', { class: 'rate-section' },
+      h('div', { class: 'row center rate-head' }, h('span', { text: 'Speed' })),
+      aSpeedRange,
+      h('div', { class: 'row gap center' },
+        stepBtn('−', 'Slower by 0.05×', () => setSpeed(Player.rateOf().speed - 0.05)),
+        aSpeed, h('span', { class: 'muted', text: '×' }),
+        stepBtn('+', 'Faster by 0.05×', () => setSpeed(Player.rateOf().speed + 0.05)),
+      ),
+    );
+    const pitchRow = h('div', { class: 'rate-section' },
+      h('div', { class: 'row center rate-head' }, h('span', { text: 'Pitch' })),
+      aPitchRange,
+      h('div', { class: 'row gap center wrap' },
+        stepBtn('−', 'One semitone lower', () => setPitch(fromSemis(Math.round(semis(Player.rateOf().pitch)) - 1))),
+        aPitch, h('span', { class: 'muted', text: '×' }),
+        stepBtn('+', 'One semitone higher', () => setPitch(fromSemis(Math.round(semis(Player.rateOf().pitch)) + 1))),
+        h('div', { class: 'spacer' }),
+        aSemis, h('span', { class: 'muted', text: 'semitones' }),
+      ),
+    );
+    const advanced = h('div', { class: 'rate-advanced' }, speedRow, pitchRow);
+
+    // Put every control in line with the current setting (except the one being dragged or typed in).
+    const sync = (from) => {
+      const r = Player.rateOf();
+      const adv = s.rateMode === 'advanced';
+      modeBtns.forEach((b, i) => b.classList.toggle('active', (i === 1) === adv));
+      simple.hidden = adv;
+      advanced.hidden = !adv;
+      own.checked = r.own;
+      link.checked = r.linkPitch;
+      sVal.textContent = fmtRate(r.speed) + '×';
+      if (from !== sRange) sRange.value = Math.log2(r.speed);
+      presets.querySelectorAll('button').forEach((b) => b.classList.toggle('on', parseFloat(b.dataset.v) === r.speed));
+      const st = semis(r.pitch);
+      sPitchNote.textContent = !r.linkPitch && Math.abs(st) >= 0.005 ? `Pitch: ${fmtSemis(st)} semitones (change it in Advanced)` : '';
+      if (from !== aSpeedRange) aSpeedRange.value = Math.log2(r.speed);
+      if (document.activeElement !== aSpeed) aSpeed.value = fmtRate(r.speed);
+      if (from !== aPitchRange) aPitchRange.value = st;
+      if (document.activeElement !== aPitch) aPitch.value = fmtRate(r.pitch);
+      if (document.activeElement !== aSemis) aSemis.value = Math.abs(st) < 0.005 ? '0' : String(Math.round(st * 100) / 100);
+      [sRange, aSpeedRange, aPitchRange].forEach(paint);
+      pitchRow.classList.toggle('disabled', r.linkPitch);
+      [aPitchRange, aPitch, aSemis, ...pitchRow.querySelectorAll('button')].forEach((el) => (el.disabled = r.linkPitch));
+    };
+
+    const body = h('div', { class: 'form rate' }, mode, ownRow, simple, advanced, linkRow);
+    sync();
+    Modal.open({
+      title: 'Play speed & pitch',
+      body,
+      buttons: [
+        {
+          label: 'Reset',
+          left: true,
+          action: () => {
+            Player.setRate({ speed: 1, pitch: 1, linkPitch: false });
+            sync();
+            return false;
+          },
+        },
+        { label: 'Done', primary: true },
+      ],
+    });
   },
 
   // ---------- settings ----------
