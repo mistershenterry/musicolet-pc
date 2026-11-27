@@ -26,7 +26,6 @@ const Presence = {
     if (!this.cfg.enabled) return;
     const t = Store.track(Player.currentId);
     if (!t || !this.hasPlayed) return api.discordUpdate({ idle: true });
-    const a = Player.audio;
     api.discordUpdate({
       id: t.id,
       coverFile: t.cover,
@@ -35,8 +34,8 @@ const Presence = {
       title: t.title,
       artist: t.artist,
       album: t.album,
-      duration: isFinite(a.duration) ? a.duration : t.duration || 0,
-      position: a.currentTime || 0,
+      duration: isFinite(Player.duration) ? Player.duration : t.duration || 0,
+      position: Player.time || 0,
       speed: Player.rateOf().speed,
       playing: Player.playing,
       showPaused: this.cfg.showPaused,

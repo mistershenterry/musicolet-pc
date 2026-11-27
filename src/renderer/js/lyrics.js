@@ -92,7 +92,7 @@ const Lyrics = {
   update(force = false) {
     const c = this.current;
     if (!c || !c.synced || c.id !== Player.currentId) return;
-    const t = Player.audio.currentTime + 0.15;
+    const t = Player.time + 0.15;
     let lo = 0;
     let hi = c.lines.length - 1;
     let found = -1;

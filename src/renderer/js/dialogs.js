@@ -117,7 +117,7 @@ const Dialogs = {
         let end = v.indexOf('\n', pos);
         if (end < 0) end = v.length;
         const line = v.slice(start, end).replace(/^(\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\])+/, '');
-        const stamped = Lyrics.stamp(Math.max(0, Player.audio.currentTime - 0.2)) + line;
+        const stamped = Lyrics.stamp(Math.max(0, Player.time - 0.2)) + line;
         ta.value = v.slice(0, start) + stamped + v.slice(end);
         const nextLine = start + stamped.length + 1;
         ta.selectionStart = ta.selectionEnd = Math.min(nextLine, ta.value.length);
@@ -404,6 +404,39 @@ const Dialogs = {
       h('div', {}, h('div', { text: 'Change pitch with speed' }), h('div', { class: 'muted small', text: 'Faster sounds higher, slower sounds lower, like a record.' })),
     );
 
+    // Use ffmpeg: greyed out unless ffmpeg is installed (looked for again every time this window opens).
+    const ffm = h('input', { type: 'checkbox' });
+    const ffmHint = h('div', { class: 'muted small' });
+    const ffmRow = h('label', { class: 'row gap center rate-ffmpeg' },
+      h('label', { class: 'switch' }, ffm, h('span', { class: 'slider' })),
+      h('div', {}, h('div', { text: 'Use ffmpeg' }), ffmHint),
+    );
+    ffm.addEventListener('change', () => {
+      s.useFfmpeg = ffm.checked;
+      Store.save();
+      Player.applyRate();
+      sync();
+    });
+    let checking = true;
+    api.ffmpegStatus(true).then((st) => {
+      checking = false;
+      Player.ffmpeg = st;
+      Player.applyRate();
+      sync();
+    });
+    const ffmText = (r) => {
+      const st = Player.ffmpeg;
+      if (checking && !st) return 'Looking for ffmpeg…';
+      if (!st?.available) return "ffmpeg wasn't found. Install it (for example: winget install ffmpeg), then open this window again.";
+      if (!s.useFfmpeg) return 'Smoother sound than the built-in way, especially for very slowed songs.';
+      if (r.linkPitch || Math.abs(r.pitch - r.speed) < 1e-4) return 'Not needed right now: the speed and pitch are changed together, which is already perfect.';
+      const fx = Player.fxState;
+      if (fx?.state === 'working') return `Processing this song with ffmpeg… ${fx.pct || 0}%`;
+      if (fx?.state === 'error') return `ffmpeg couldn't process this song (${fx.error}), so the built-in way is used.`;
+      if (Player.fx) return `Playing the ffmpeg version of this song${st.rubberband ? ' (Rubber Band)' : ''}.`;
+      return 'Each song is processed when it starts, which takes a few seconds.';
+    };
+
     const range = (min, max, step) => h('input', { type: 'range', class: 'rate-range', min, max, step });
     const paint = (r) => App.paintRange(r);
 
@@ -502,15 +535,25 @@ const Dialogs = {
       if (document.activeElement !== aPitch) aPitch.value = fmtRate(r.pitch);
       if (document.activeElement !== aSemis) aSemis.value = Math.abs(st) < 0.005 ? '0' : String(Math.round(st * 100) / 100);
       [sRange, aSpeedRange, aPitchRange].forEach(paint);
+      const avail = !!Player.ffmpeg?.available;
+      ffm.checked = avail && !!s.useFfmpeg;
+      ffm.disabled = !avail;
+      ffmRow.classList.toggle('disabled', !avail);
+      ffmHint.textContent = ffmText(r);
       pitchRow.classList.toggle('disabled', r.linkPitch);
       [aPitchRange, aPitch, aSemis, ...pitchRow.querySelectorAll('button')].forEach((el) => (el.disabled = r.linkPitch));
     };
 
-    const body = h('div', { class: 'form rate' }, mode, ownRow, simple, advanced, linkRow);
+    const body = h('div', { class: 'form rate' }, mode, ownRow, simple, advanced, linkRow, ffmRow);
     sync();
+    const onFx = () => sync();
+    Player.on('fx', onFx);
     Modal.open({
       title: 'Play speed & pitch',
       body,
+      onClose: () => {
+        Player.off('fx', onFx);
+      },
       buttons: [
         {
           label: 'Reset',

@@ -121,12 +121,12 @@ const App = {
     const seek = $('#seek');
     seek.addEventListener('input', () => {
       this.seeking = true;
-      const d = Player.audio.duration || 0;
+      const d = Player.duration || 0;
       $('#time-cur').textContent = fmtTime((seek.value / 1000) * d);
       this.paintRange(seek);
     });
     seek.addEventListener('change', () => {
-      Player.seek((seek.value / 1000) * (Player.audio.duration || 0));
+      Player.seek((seek.value / 1000) * (Player.duration || 0));
       this.seeking = false;
     });
 
@@ -152,13 +152,13 @@ const App = {
   },
 
   updateTime() {
-    const a = Player.audio;
-    const d = isFinite(a.duration) ? a.duration : Store.track(Player.currentId)?.duration || 0;
+    const d = isFinite(Player.duration) ? Player.duration : Store.track(Player.currentId)?.duration || 0;
+    const cur = Player.time;
     $('#time-dur').textContent = fmtTime(d);
     if (!this.seeking) {
-      $('#time-cur').textContent = fmtTime(a.currentTime);
+      $('#time-cur').textContent = fmtTime(cur);
       const seek = $('#seek');
-      seek.value = d ? Math.round((a.currentTime / d) * 1000) : 0;
+      seek.value = d ? Math.round((cur / d) * 1000) : 0;
       this.paintRange(seek);
     }
     Lyrics.update();
@@ -199,6 +199,7 @@ const App = {
       `Play speed & pitch: ${fmtRate(r.speed)}×` +
       (pitched ? `, pitch ${st > 0 ? '+' : ''}${Math.round(st * 100) / 100} semitones` : '') +
       (r.own ? ' (this song only)' : '') +
+      (Player.fx ? ', processed by ffmpeg' : '') +
       '\nRight-click for quick speeds';
   },
 

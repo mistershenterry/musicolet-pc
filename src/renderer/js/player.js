@@ -30,9 +30,21 @@ const Player = {
   sleep: null,
   _lastPosSave: 0,
   _listeners: {},
+  // "Use ffmpeg" (Play speed & pitch): fx = { speed, pitch, key } while the ffmpeg version of the song is playing.
+  // That file is already at the new speed, so it plays at rate 1 and its timeline is song time / speed.
+  ffmpeg: null, // { available, version, rubberband } from main
+  fx: null,
+  fxState: null, // { state: 'working' | 'on' | 'error', pct, error }
+  fxKeys: new Map(), // "path|speed|pitch" -> render key (renders made in this session)
+  fxFailed: new Map(), // "path|speed|pitch" -> error
+  _swapping: false,
+  _fxTimer: null,
 
   on(event, fn) {
     (this._listeners[event] ||= []).push(fn);
+  },
+  off(event, fn) {
+    this._listeners[event] = (this._listeners[event] || []).filter((f) => f !== fn);
   },
   emit(event, data) {
     for (const fn of this._listeners[event] || []) fn(data);
@@ -44,6 +56,17 @@ const Player = {
   get playing() {
     return !this.audio.paused;
   },
+  // Position and length in the song's own time (the ffmpeg version's timeline is shorter or longer).
+  get scale() {
+    return this.fx ? this.fx.speed : 1;
+  },
+  get time() {
+    return this.audio.currentTime * this.scale;
+  },
+  get duration() {
+    const d = this.audio.duration;
+    return isFinite(d) ? d * this.scale : NaN;
+  },
 
   init() {
     const a = this.audio;
@@ -54,32 +77,44 @@ const Player = {
     a.addEventListener('timeupdate', () => {
       this.checkPlayCount();
       const now = Date.now();
-      if (now - this._lastPosSave > 2000) {
+      if (!this._swapping && now - this._lastPosSave > 2000) {
         this._lastPosSave = now;
-        Store.activeQueue().position = a.currentTime;
+        Store.activeQueue().position = this.time;
         Store.save();
       }
       this.emit('time');
     });
     a.addEventListener('loadedmetadata', () => {
       if (this.pendingSeek != null) {
-        a.currentTime = Math.min(this.pendingSeek, Math.max(0, a.duration - 1));
+        a.currentTime = Math.min(this.pendingSeek / this.scale, Math.max(0, a.duration - 1));
         this.pendingSeek = null;
       }
+      this._swapping = false;
       const t = Store.track(this.currentId);
-      if (t && !t.duration && isFinite(a.duration)) t.duration = a.duration;
+      if (t && !t.duration && isFinite(a.duration)) t.duration = this.duration;
       this.emit('time');
     });
     a.addEventListener('playing', () => (this.errorStreak = 0));
     a.addEventListener('play', () => this.emit('state'));
     a.addEventListener('pause', () => {
-      Store.activeQueue().position = a.currentTime;
+      if (this._swapping) return;
+      Store.activeQueue().position = this.time;
       Store.save();
       this.emit('state');
     });
     a.addEventListener('ended', () => this.onEnded());
     a.addEventListener('error', () => {
       if (!this.currentId) return;
+      if (this.fx) {
+        // The ffmpeg version couldn't be played: forget it and go back to the song itself.
+        const t = Store.track(this.currentId);
+        const k = this.fxKey(t.path, this.fx);
+        this.fxKeys.delete(k);
+        this.fxFailed.set(k, "the processed file couldn't be played");
+        this.swapTo(null);
+        this.setFxState({ state: 'error', error: this.fxFailed.get(k) });
+        return;
+      }
       const t = Store.track(this.currentId);
       toast(`Can't play "${t ? t.title : 'this file'}". Skipping.`);
       if (++this.errorStreak < 5) this.next(true);
@@ -87,6 +122,16 @@ const Player = {
     });
 
     this.setupMediaSession();
+    api.onFxProgress((p) => {
+      const st = this.fxState;
+      if (p.slot !== 'current' || st?.state !== 'working') return;
+      const d = Store.track(this.currentId)?.duration || this.duration;
+      if (d) this.setFxState({ ...st, pct: Math.min(99, Math.round(((p.seconds * st.speed) / d) * 100)) });
+    });
+    api.ffmpegStatus().then((st) => {
+      this.ffmpeg = st;
+      this.scheduleFx();
+    });
   },
 
   // ---------- audio graph ----------
@@ -169,15 +214,113 @@ const Player = {
   // the pitch moves with the speed (like a record played faster). Whatever pitch change is left over is done by
   // the pitch shifter; pick the way that leaves it the least to do (none at all when pitch = 1 or pitch = speed).
   applyRate() {
-    const { speed, pitch } = this.rateOf();
+    const r = this.rateOf();
+    const want = this.fxWant();
+    // Settings changed while the ffmpeg version plays: back to the song itself until a new version is ready.
+    if (this.fx && !(want && want.speed === this.fx.speed && want.pitch === this.fx.pitch)) this.swapTo(null);
+    else this.setAudioRate(r);
+    this.emit('speed');
+    this.scheduleFx();
+  },
+  setAudioRate({ speed, pitch } = this.rateOf()) {
     const a = this.audio;
+    if (this.fx) {
+      a.preservesPitch = true;
+      a.defaultPlaybackRate = 1;
+      a.playbackRate = 1;
+      this.setShift(1);
+      return;
+    }
     const viaRate = Math.abs(Math.log(pitch / speed)) < Math.abs(Math.log(pitch));
     a.preservesPitch = !viaRate;
     a.defaultPlaybackRate = speed;
     a.playbackRate = speed;
     const shift = viaRate ? pitch / speed : pitch;
     this.setShift(Math.abs(shift - 1) < 1e-4 ? 1 : shift);
+  },
+
+  // ---------- "Use ffmpeg" ----------
+  // What the song should be rendered at, or null when ffmpeg isn't needed (or is off / not installed).
+  // Speed 1 + pitch 1 needs nothing, and pitch = speed is plain resampling, which the built-in way does perfectly.
+  fxWant(id = this.currentId) {
+    if (!this.s.useFfmpeg || !this.ffmpeg?.available || !id || !Store.track(id)) return null;
+    const { speed, pitch } = this.rateOf(id);
+    if (Math.abs(pitch - speed) < 1e-4) return null;
+    return { speed, pitch };
+  },
+  fxKey(path, w) {
+    return `${path}|${w.speed}|${w.pitch}`;
+  },
+  setFxState(st) {
+    this.fxState = st;
+    this.emit('fx');
+  },
+  // Switch the current song between its own file (key = null) and its ffmpeg version, at the same place in the song.
+  swapTo(key, want) {
+    const t = Store.track(this.currentId);
+    if (!t) return;
+    const a = this.audio;
+    const pos = this.time;
+    const wasPlaying = this.playing;
+    this._swapping = true;
+    this.fx = key ? { ...want, key } : null;
+    this.pendingSeek = pos;
+    a.src = key ? api.fxUrl(key) : api.mediaUrl(t.path);
+    this.setAudioRate();
+    if (wasPlaying) a.play().catch(() => {});
     this.emit('speed');
+  },
+  scheduleFx() {
+    clearTimeout(this._fxTimer);
+    this._fxTimer = setTimeout(() => this.requestFx(), 400);
+  },
+  async requestFx() {
+    const id = this.currentId;
+    const t = Store.track(id);
+    const want = this.fxWant(id);
+    if (!t || !want) return this.setFxState(null);
+    const k = this.fxKey(t.path, want);
+    if (this.fx) {
+      this.setFxState({ state: 'on' });
+      return this.prefetchNext();
+    }
+    if (this.fxKeys.has(k)) {
+      this.swapTo(this.fxKeys.get(k), want);
+      this.setFxState({ state: 'on' });
+      return this.prefetchNext();
+    }
+    if (this.fxFailed.has(k)) return this.setFxState({ state: 'error', error: this.fxFailed.get(k) });
+    this.setFxState({ state: 'working', pct: 0, speed: want.speed });
+    const res = await api.fxRender({ file: t.path, speed: want.speed, pitch: want.pitch, slot: 'current' });
+    const still = this.currentId === id && this.fxWant(id) && this.fxKey(t.path, this.fxWant(id)) === k;
+    if (res.error) {
+      if (res.stopped) return;
+      this.fxFailed.set(k, res.error);
+      if (still) {
+        this.setFxState({ state: 'error', error: res.error });
+        toast(`ffmpeg couldn't process "${t.title}", using the built-in speed & pitch`);
+      }
+      return;
+    }
+    this.fxKeys.set(k, res.key);
+    if (still && !this.fx) {
+      this.swapTo(res.key, want);
+      this.setFxState({ state: 'on' });
+      this.prefetchNext();
+    }
+  },
+  // Render the next song in the queue ahead of time, so it starts with the ffmpeg version straight away.
+  prefetchNext() {
+    const q = Store.activeQueue();
+    const nid = q.items[q.index + 1];
+    const nt = Store.track(nid);
+    const w = this.fxWant(nid);
+    if (!nt || !w) return;
+    const k = this.fxKey(nt.path, w);
+    if (this.fxKeys.has(k) || this.fxFailed.has(k)) return;
+    api.fxRender({ file: nt.path, speed: w.speed, pitch: w.pitch, slot: 'next' }).then((res) => {
+      if (res.key) this.fxKeys.set(k, res.key);
+    });
   },
   setShift(ratio) {
     this._shift = ratio;
@@ -240,7 +383,13 @@ const Player = {
     this.counted = false;
     this.pendingSeek = position > 0 ? position : null;
     q.position = position;
-    a.src = api.mediaUrl(t.path);
+    // Use the ffmpeg version right away if it's ready (e.g. rendered while the previous song played).
+    const want = this.fxWant(id);
+    const fxKey = want && this.fxKeys.get(this.fxKey(t.path, want));
+    this.fx = fxKey ? { ...want, key: fxKey } : null;
+    this._swapping = false;
+    this.setFxState(null);
+    a.src = fxKey ? api.fxUrl(fxKey) : api.mediaUrl(t.path);
     this.applyRate();
     this.emit('track');
     this.updateMediaSession();
@@ -265,10 +414,10 @@ const Player = {
   },
   seek(sec) {
     if (!this.currentId) return;
-    this.audio.currentTime = Math.max(0, Math.min(sec, this.audio.duration || sec));
+    this.audio.currentTime = Math.max(0, Math.min(sec, this.duration || sec)) / this.scale;
   },
   seekBy(delta) {
-    this.seek(this.audio.currentTime + delta);
+    this.seek(this.time + delta);
   },
 
   moved() {
@@ -298,7 +447,7 @@ const Player = {
     const q = Store.activeQueue();
     if (!q.items.length) return;
     const threshold = this.s.prevThreshold;
-    if (threshold > 0 && this.audio.currentTime > threshold) {
+    if (threshold > 0 && this.time > threshold) {
       this.seek(0);
       return;
     }
@@ -349,9 +498,8 @@ const Player = {
 
   checkPlayCount() {
     if (this.counted || !this.currentId) return;
-    const a = this.audio;
-    const d = a.duration;
-    if (a.currentTime >= Math.min(30, (isFinite(d) ? d : 60) * 0.5)) {
+    const d = this.duration;
+    if (this.time >= Math.min(30, (isFinite(d) ? d : 60) * 0.5)) {
       this.counted = true;
       Store.recordPlay(this.currentId);
     }
@@ -416,7 +564,7 @@ const Player = {
   },
 
   saveCurrentPosition() {
-    if (this.currentId) Store.activeQueue().position = this.audio.currentTime;
+    if (this.currentId) Store.activeQueue().position = this.time;
   },
 
   activateQueue(qid, index = null) {

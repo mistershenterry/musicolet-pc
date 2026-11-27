@@ -22,6 +22,13 @@ Speed button in the player bar → Play speed & pitch (`Dialogs.playSpeed`; righ
 change left over through the AudioWorklet pitch shifter `src/renderer/js/pitch-worklet.js`, which is only in the audio
 graph while it is needed.
 
+**Use ffmpeg** (`settings.useFfmpeg`, greyed out when ffmpeg isn't found): `src/main/ffmpeg.js` finds the user's own
+ffmpeg (PATH + usual install folders; never bundled), renders the song at the speed/pitch (rubberband filter, else
+atempo/asetrate) to WAV, encrypts it with the vault key into `userData/fx-cache` (2 GB limit) and serves it as
+`mco://fx/<key>`. Downloaded songs go in through a pipe, never decrypted to disk. The renderer plays the built-in way
+until the render is ready, then swaps at the same spot (`Player.swapTo`) and pre-renders the next queue song. That file
+is already at the new speed, so use `Player.time` / `Player.duration` (song time), not `audio.currentTime`.
+
 ## Separating albums (album groups): how to do it from a prompt
 
 Songs are grouped into albums by album name (+ album artist, or folder when there's none). Unrelated songs that happen

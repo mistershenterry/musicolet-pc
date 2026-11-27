@@ -2,6 +2,7 @@
 //  mco://app/<file>      -> UI files from src/renderer
 //  mco://media/<path>    -> audio files inside the library folders (supports Range requests for seeking)
 //  mco://cover/<name>    -> cached album art
+//  mco://fx/<key>        -> a song processed by ffmpeg for Play speed & pitch (encrypted cache, see ffmpeg.js)
 // Serving everything from one origin lets Web Audio (the equalizer) read the audio samples.
 const { protocol } = require('electron');
 const path = require('path');
@@ -114,7 +115,7 @@ async function serveVault(file, info, vault, request) {
   return new Response(vault.stream(file, info.iv, start, end), { status: m ? 206 : 200, headers });
 }
 
-function handleProtocol({ rendererDir, coverDir, isAllowedMedia, vaultInfo, vault, songCover }) {
+function handleProtocol({ rendererDir, coverDir, isAllowedMedia, vaultInfo, vault, songCover, fxInfo }) {
   protocol.handle('mco', (request) => {
     const url = new URL(request.url);
     const pathname = decodeURIComponent(url.pathname);
@@ -134,6 +135,11 @@ function handleProtocol({ rendererDir, coverDir, isAllowedMedia, vaultInfo, vaul
     if (url.host === 'libcover' && songCover) {
       // Song Library covers: fetched from the Song Library server, cached on disk.
       return songCover(pathname.replace(/^\/+/, '')).then((file) => (file ? serveFile(file, request) : new Response('Not found', { status: 404 })));
+    }
+    if (url.host === 'fx' && fxInfo) {
+      const info = fxInfo(pathname.replace(/^\/+/, ''));
+      if (!info) return new Response('Not found', { status: 404 });
+      return serveVault(info.file, info, vault, request);
     }
     if (url.host === 'cover') {
       return serveFile(path.join(coverDir, path.basename(pathname)), request);

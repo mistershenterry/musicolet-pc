@@ -27,6 +27,7 @@ function defaultState() {
       pitch: 1,
       linkPitch: false,
       rateMode: 'simple', // simple | advanced (Play speed & pitch window)
+      useFfmpeg: false, // Play speed & pitch through the user's ffmpeg (src/main/ffmpeg.js)
       songRates: {}, // trackId -> { speed, pitch, linkPitch }: songs with their own speed & pitch
       repeat: 'all', // off | all | one
       clickAction: 'replace', // replace | newqueue | next | append

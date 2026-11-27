@@ -2018,3 +2018,14 @@ input.rate-range::-webkit-slider-thumb {
 .rate [hidden] {
   display: none !important;
 }
+.rate-ffmpeg {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.rate-ffmpeg.disabled {
+  opacity: 0.45;
+}
+.rate-ffmpeg.disabled,
+.rate-ffmpeg.disabled .switch .slider {
+  cursor: not-allowed;
+}

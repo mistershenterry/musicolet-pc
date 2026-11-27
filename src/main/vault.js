@@ -87,6 +87,14 @@ class Vault {
     return iv.toString('hex');
   }
 
+  // Encrypt something (e.g. an ffmpeg render of a song) into a file of the caller's choosing. Returns its IV.
+  encryptTo(file, plain) {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(ALGO, this.key, iv);
+    fs.writeFileSync(file, Buffer.concat([cipher.update(plain), cipher.final()]));
+    return iv.toString('hex');
+  }
+
   // Encrypt a downloaded song into the vault. Returns where it went and its IV (kept with the library entry).
   store(plain) {
     const iv = crypto.randomBytes(16);

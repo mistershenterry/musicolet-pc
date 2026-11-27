@@ -14,6 +14,8 @@ const { Bulletin } = require('./bulletin');
 let bulletin = null;
 const { Downloads } = require('./downloads');
 let downloads = null;
+const { FfmpegFx } = require('./ffmpeg');
+let fx = null;
 
 registerSchemes();
 
@@ -88,6 +90,14 @@ function registerIpc() {
   });
 
   ipcMain.handle('library:get', () => library.get());
+  ipcMain.handle('fx:status', (_e, force) => fx.detect(!!force));
+  ipcMain.handle('fx:render', async (_e, req) => {
+    try {
+      return await fx.render(req);
+    } catch (err) {
+      return { error: err.message || String(err), stopped: !!err.stopped };
+    }
+  });
   ipcMain.handle('library:addFolder', async () => {
     const res = await dialog.showOpenDialog(win, {
       title: 'Add music folder',
@@ -267,6 +277,9 @@ if (!gotLock) {
     discord.covers = new CoverLookup(userFile('discord-covers.json'));
     discord.uploader = new CoverUploader(library.coverDir, userFile('discord-uploads.json'));
     bulletin = new Bulletin(userFile('bulletin.json'));
+    fx = new FfmpegFx(app.getPath('userData'), library, (channel, payload) => {
+      if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+    });
     handleProtocol({
       rendererDir: RENDERER_DIR,
       coverDir: library.coverDir,
@@ -274,6 +287,7 @@ if (!gotLock) {
       vaultInfo: (file) => library.vaultInfo(file),
       vault: library.vault,
       songCover: (rel) => downloads.cover(rel),
+      fxInfo: (key) => fx.info(key),
     });
     registerIpc();
     createWindow();

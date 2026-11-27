@@ -51,5 +51,9 @@ contextBridge.exposeInMainWorld('api', {
   importPlaylist: () => ipcRenderer.invoke('playlist:import'),
 
   mediaUrl: (file) => 'mco://media/' + encodeURIComponent(file),
+  ffmpegStatus: (force) => ipcRenderer.invoke('fx:status', force),
+  fxRender: (req) => ipcRenderer.invoke('fx:render', req),
+  fxUrl: (key) => 'mco://fx/' + key,
+  onFxProgress: (cb) => ipcRenderer.on('fx:progress', (_e, p) => cb(p)),
   coverUrl: (name) => (name ? 'mco://cover/' + encodeURIComponent(name) : ''),
 });
