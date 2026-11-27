@@ -9,5 +9,4 @@
 # Coming in the next update
 
 - [ ] A "Find lyrics" button that finds synced lyrics online for songs without any.
-
 - [ ] A translation button for lyrics.
